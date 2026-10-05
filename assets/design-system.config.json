@@ -1,0 +1,31 @@
+{
+  "srcDirs": ["src", "components"],
+  "kitDir": "components/ui",
+  "exempt": ["node_modules", "dist", "build"],
+  "tokenFiles": ["src/index.css"],
+  "typeTokenPrefix": "--ds-text-",
+  "typeClassPrefix": "text-ds-",
+
+  "kit": {
+    "baseline": "design-system-baseline.json",
+    "exempt": ["components/marketing"],
+    "disable": [],
+    "metrics": {},
+    "hints": {}
+  },
+
+  "properNames": ["Product Name", "Settings Page Name", "Framework Term"],
+  "properWords": ["Brandname"],
+  "writing": {
+    "otherNames": { "Old Feature Name": "New Feature Name" },
+    "exempt": []
+  },
+
+  "baseUrl": "http://localhost:5173",
+  "routes": ["/", "/settings", "/design-system"],
+  "audit": {
+    "setup": "scripts/audit-setup.mjs",
+    "scope": ".app-shell",
+    "headerSelector": "header h1"
+  }
+}

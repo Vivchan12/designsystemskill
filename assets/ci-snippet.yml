@@ -1,0 +1,15 @@
+# Add these steps to the project's existing CI job, after install.
+# Start with --list on tokens and writing (report only) until their waves land.
+      - name: Design tokens
+        run: node scripts/check-tokens.mjs        # add --list until wave 1 lands
+      - name: Component kit (ratchet)
+        run: node scripts/check-kit.mjs
+      - name: UI writing
+        run: node scripts/check-writing.mjs       # add --list until phase 5 lands
+
+# Optional: the render audit in CI needs the app running and a browser.
+#      - name: Render audit
+#        run: |
+#          npx playwright-core install chromium
+#          (npm run dev &) && npx wait-on http://localhost:5173
+#          node scripts/audit-render.mjs && node scripts/audit-render.mjs --dark && node scripts/audit-render.mjs --width 390

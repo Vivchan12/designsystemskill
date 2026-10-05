@@ -1,0 +1,111 @@
+#!/usr/bin/env node
+/**
+ * audit-render — open every screen in a real browser and ask the page what it
+ * IS, not what the source SAYS. Catches what no grep can:
+ *   - text with no size class, inheriting 16px (often larger than the headings)
+ *   - a CSS rule with higher specificity silently beating the utility
+ *   - a portal to <body> escaping the scope where the tokens are defined
+ *   - text below WCAG AA contrast (alpha-aware: rgba(255,255,255,.04) is not white)
+ *   - top-level panels not lining up with the page header ("one edge")
+ *
+ *   node audit-render.mjs                  # app must already be running at baseUrl
+ *   node audit-render.mjs --shots          # + a full-page screenshot per route (audit-shots/)
+ *   node audit-render.mjs --dark           # prefers-color-scheme: dark
+ *   node audit-render.mjs --width 390      # phone
+ *   node audit-render.mjs --strict         # also fail on contrast misses
+ *
+ * Config (design-system.config.json):
+ *   "baseUrl": "http://localhost:5173",
+ *   "routes": ["/", "/settings", …],          every screen, not a sample
+ *   "audit": {
+ *     "setup": "scripts/audit-setup.mjs",     optional: export default async (page, { dark }) => { sign in, seed data, set theme }
+ *     "scope": ".app-shell",                  optional: only audit text inside this element
+ *     "headerSelector": "header h1",          optional: the element whose box defines the page edge
+ *     "allowedSizes": [12, 13, 15, 18, 22, 38]  optional: else read from typeTokenPrefix tokens
+ *   }
+ * Needs playwright or playwright-core installed in the project (npm i -D playwright-core).
+ */
+import { mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+import { loadConfig, readTokens } from './lib.mjs';
+
+const cfg = loadConfig();
+const A = cfg.audit ?? {};
+const args = process.argv.slice(2);
+const SHOTS = args.includes('--shots'), DARK = args.includes('--dark'), STRICT = args.includes('--strict');
+const WIDTH = Number(args[args.indexOf('--width') + 1]) || 1440;
+
+const req = createRequire(join(cfg.root, 'package.json'));
+let chromium;
+try { ({ chromium } = req('playwright')); } catch { try { ({ chromium } = req('playwright-core')); } catch {
+  console.error('✗ Install playwright-core in the project: npm i -D playwright-core'); process.exit(1); } }
+
+const toPx = (v) => { const m = String(v).match(/([\d.]+)(px|rem)?/); return m ? +(m[2] === 'rem' ? m[1] * 16 : m[1]) : NaN; };
+const allowed = A.allowedSizes ?? Object.entries(readTokens(cfg)).filter(([k]) => k.startsWith(cfg.typeTokenPrefix)).map(([, v]) => toPx(v)).filter(n => !isNaN(n));
+if (!allowed.length) { console.error(`✗ No type scale: set audit.allowedSizes, or declare ${cfg.typeTokenPrefix}* tokens.`); process.exit(1); }
+
+const setup = A.setup ? (await import(pathToFileURL(resolve(cfg.root, A.setup)).href)).default : null;
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+const context = await browser.newContext({ viewport: { width: WIDTH, height: 900 }, colorScheme: DARK ? 'dark' : 'light' });
+const page = await context.newPage();
+page.setDefaultTimeout(8000);
+if (setup) await setup(page, { dark: DARK, context });
+if (SHOTS) mkdirSync(join(cfg.root, 'audit-shots'), { recursive: true });
+
+let offScale = 0, contrast = 0, edges = 0;
+for (const route of cfg.routes) {
+  await page.goto(cfg.baseUrl + route, { waitUntil: 'networkidle' }).catch(() => {});
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(({ allowed, scope, headerSelector }) => {
+    const root = (scope && document.querySelector(scope)) || document.body;
+    const parse = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const [r, g, b, a = 1] = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r, g, b, a }; };
+    const lum = ({ r, g, b }) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+    const blend = (top, under) => ({ r: top.r * top.a + under.r * (1 - top.a), g: top.g * top.a + under.g * (1 - top.a), b: top.b * top.a + under.b * (1 - top.a), a: 1 });
+    const bgOf = (el) => { // composite translucent backgrounds up the tree
+      const layers = [];
+      for (let n = el; n; n = n.parentElement) { const c = parse(getComputedStyle(n).backgroundColor); if (c && c.a > 0) { layers.push(c); if (c.a >= 1) break; } }
+      return layers.reverse().reduce((acc, c) => blend(c, acc), { r: 255, g: 255, b: 255, a: 1 });
+    };
+    const label = (el) => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.split(/\s+/).slice(0, 3).join('.') : ''} "${el.textContent.trim().slice(0, 40)}"`;
+    const off = [], low = [];
+    for (const el of root.querySelectorAll('*')) {
+      if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') continue;
+      const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+      if (!own) continue;
+      const cs = getComputedStyle(el);
+      const size = parseFloat(cs.fontSize);
+      if (!allowed.some(a => Math.abs(a - size) < 0.26)) off.push(`${size}px ${label(el)}`);
+      const fg = parse(cs.color);
+      if (fg && fg.a > 0.3 && !el.closest('[disabled],[aria-disabled="true"]')) {
+        const bg = bgOf(el); const f = blend(fg, bg);
+        const [hi, lo] = [lum(f), lum(bg)].sort((a, b) => b - a);
+        const ratio = (hi + 0.05) / (lo + 0.05);
+        const large = size >= 24 || (size >= 18.66 && +cs.fontWeight >= 700);
+        if (ratio < (large ? 3 : 4.5)) low.push(`${ratio.toFixed(2)}:1 ${label(el)}`);
+      }
+    }
+    const misaligned = [];
+    const head = headerSelector && document.querySelector(headerSelector);
+    if (head) {
+      const h = head.getBoundingClientRect();
+      for (const el of root.querySelectorAll('section, [class*="card"], [class*="panel"]')) {
+        const b = el.getBoundingClientRect();
+        if (b.width > 400 && el.parentElement && Math.abs(b.left - h.left) > 2 && Math.abs(b.left - h.left) < 60) misaligned.push(`${Math.round(b.left - h.left)}px ${label(el)}`);
+      }
+    }
+    return { off: [...new Set(off)], low: [...new Set(low)], misaligned };
+  }, { allowed, scope: A.scope, headerSelector: A.headerSelector });
+  if (SHOTS) await page.screenshot({ path: join(cfg.root, 'audit-shots', `${route.replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'home'}-${WIDTH}${DARK ? '-dark' : ''}.png`), fullPage: true });
+  offScale += r.off.length; contrast += r.low.length; edges += r.misaligned.length;
+  if (r.off.length || r.low.length || r.misaligned.length) {
+    console.log(`\n${route}`);
+    r.off.slice(0, 15).forEach(x => console.log(`  off-scale  ${x}`));
+    r.low.slice(0, 10).forEach(x => console.log(`  contrast   ${x}`));
+    r.misaligned.slice(0, 5).forEach(x => console.log(`  edge       ${x}`));
+  }
+}
+await browser.close();
+console.log(`\n${cfg.routes.length} routes at ${WIDTH}px${DARK ? ', dark' : ''}: ${offScale} off-scale, ${contrast} contrast, ${edges} edge. Allowed sizes: ${allowed.join(', ')}px.`);
+if (offScale || edges || (STRICT && contrast)) process.exit(1);

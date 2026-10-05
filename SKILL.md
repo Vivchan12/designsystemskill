@@ -1,0 +1,149 @@
+---
+name: design-system-rollout
+description: Turn an app's scattered UI (hand-styled buttons, ad-hoc font sizes, one-off cards, raw colours, inconsistent labels) into one enforced design system — tokens, a component kit, CI guards and a writing guide — and migrate every screen onto it. Use this whenever someone wants to make a product's UI consistent, "put the design elements into a system", build or adopt a component library, clean up typography/spacing/colours across a codebase, add a design-token or type-scale guard, audit UI drift, standardise button/card/dialog styles, or write a UI copy style guide — even if they only say "the app looks inconsistent", "tidy up the design", or "make every screen use the same components". Works best on React + Tailwind; the process and guards adapt to other stacks.
+---
+
+# Design system rollout
+
+Take an existing app from "every screen styled by hand" to "every screen built
+from one kit, and CI stops it drifting back". This is the condensed version of
+a rollout that first took about three days; the steps below are ordered so it
+fits in roughly one working day of agent time plus two short decision
+check-ins with the owner.
+
+Three layers, and screens only ever touch the top one:
+
+1. **Tokens.** Named values (type rungs, colours, radii, spacing, surfaces) as CSS custom properties.
+2. **Components.** A kit (e.g. `components/ui/`) built only from tokens. Components take *meaning* (variant, tone, size), never styling classes. `className` is for layout only.
+3. **Guards.** CI checks that block anything bypassing 1–2, plus a render audit that asks the page what it *is*.
+
+## Why the original took three days, and what this skill changes
+
+| Slow because… | Do this instead |
+|---|---|
+| Variants were discovered screen by screen | Run `scripts/inventory.mjs` first. It counts every variant of every UI job in under a second. |
+| Design decisions came up one at a time mid-migration | Ask them all at once with `references/decisions.md`, before writing any code. |
+| Guards were added after migrating, so drift crept back between PRs | Install the guards on day one with a **ratchet baseline** (CI green immediately; counts can only fall). |
+| Migration went component by component, ~20 PRs | Migrate in **5 waves by pattern**, codemods first, parallel subagents per file group, one PR per wave. |
+| Bugs were found by reading code ("looks done") | Verify each wave by **rendering** (screenshots light/dark/phone + `audit-render.mjs`), not by a second grep. |
+| The same traps were hit repeatedly | Read `references/pitfalls.md` before writing any codemod. |
+
+## The process
+
+Follow these phases in order. Each has an exit check; don't start the next
+phase until it passes. Tell the owner which phase you're in as you go.
+
+### Phase 0: Inventory (≈15 min, no code changes)
+
+1. Find the stack: CSS approach (Tailwind? CSS modules? styled-components?), component folders, how screens are routed, whether a kit already exists. Then look for what's already there, because a rollout usually finishes a half-built system rather than starting from nothing:
+   - existing tokens;
+   - existing shared components, and how many screens actually use them;
+   - existing design docs and reference folders (check whether they still match the live app);
+   - more than one visual style, for example a separate look on login or marketing pages.
+2. **Test every existing guard before trusting it.** Plant one violation (e.g. `text-[10px]` in a screen) and run the guard. If it stays green, it is checking nothing. Report that as a finding, because it explains how the drift got in (`pitfalls.md` §1).
+3. Write `design-system.config.json` in the project root (template: `assets/design-system.config.json`). Set `srcDirs` to **every** folder that holds screens: a sweep is only as wide as its glob.
+4. Run `node <skill>/scripts/inventory.mjs --out ds-inventory.md`, then read the report. It shows:
+   - how many font sizes, radii, colours, paddings and gaps are in use, and how many distinct variants each has;
+   - "recipes" (the class combinations used) for buttons, cards and pills;
+   - hand-built dialogs, spinners, form fields, step counters, tables and progress bars;
+   - Title Case labels, "!", "..." and typed arrows;
+   - classes that can't exist (a palette shade such as `gray-150` that Tailwind doesn't have). These render nothing, silently.
+5. Write a 10-line summary for the owner: the headline counts, the 3 worst areas, and any broken guard or stale doc you found.
+
+**Exit:** the owner has seen the summary.
+
+### Phase 1: Decisions in one sitting (≈15 min of the owner's time)
+
+Fill in `references/decisions.md` with *proposed* answers drawn from the
+inventory: the type scale, spacing scale, radii, colours and tones, surfaces,
+dark mode, the kit list and writing rules. Present it as a single document and
+ask the owner to change anything they disagree with.
+
+Propose; don't interrogate. Every question should come with a recommended answer
+and the evidence for it ("13 font sizes in use; 10px, 11px and 12px cover 70%
+of them, so I propose rungs at 11, 12, 13, 15, 17, 22, 28, 38").
+
+**Exit:** the owner has signed off (or edited) the decisions sheet.
+
+### Phase 2: Foundations and guards (≈1–2 h)
+
+1. **Tokens.** Write the decided values as CSS custom properties, and map them in the Tailwind config (or the equivalent) as role-named utilities, e.g. `text-ds-body`, `bg-ds-panel`, `rounded-ds-card`. Set the body default to the body rung, so unsized text is never the browser's 16px. Make buttons and inputs inherit font size.
+2. **Copy the guards** into the project's `scripts/` folder and add npm scripts:
+   - `check:tokens`: `check-tokens.mjs`
+   - `check:kit`: `check-kit.mjs`
+   - `check:writing`: `check-writing.mjs`
+   - `audit:render`: `audit-render.mjs`
+
+   They import `lib.mjs`, so copy that too. Run `check-kit.mjs --init` once to record today's counts as the ceiling.
+3. **CI.** Add `check:tokens`, `check:kit` and `check:writing` to the existing CI job (`assets/ci-snippet.yml`). Use `check:tokens --list` and `check:writing --list` (report only) until their waves land, then switch them to failing mode.
+4. **Prove each guard fails.** Plant one violation per guard, watch it go red, then remove it. A guard that finds no inputs and passes is worse than none (`pitfalls.md` §1).
+
+**Exit:** CI is green with the guards in it, and each guard has been seen to fail on a planted violation.
+
+### Phase 3: The kit (≈2–3 h)
+
+Build the components named in the decisions sheet. Use `references/kit.md` for
+each component's API shape, the rules it enforces, and what it replaces. Start
+with the components that clear the largest inventory counts: usually
+Text/Heading/Eyebrow, then Button, then Field and its inputs, then Card and Notice.
+
+- Each component takes meaning, never style: `<Button variant="secondary" size="sm" icon="…" loading>`, `<Text variant="meta" tone="muted">`.
+- Add a gallery page (`/design-system`) that renders every component in every variant. It is the visual spec, and the render audit covers it.
+- Write `DESIGN-SYSTEM.md` from `assets/DESIGN-SYSTEM.template.md` as you go, with the component table and the rules.
+- Add a small unit test per component for the guarantees that matter: ARIA roles, `type="button"`, focus trap in Modal, `loading` disabling the button.
+
+**Exit:** the gallery renders cleanly in light and dark, and `audit-render.mjs` passes on the gallery route.
+
+### Phase 4: Migrate in five waves (most of the day)
+
+Five waves, one PR each, in this order, because each later wave's codemod
+relies on the earlier one:
+
+1. **Type.** Hand-sized text becomes Text/Heading/Eyebrow/Icon size, and off-scale sizes go onto rungs.
+2. **Controls.** Buttons, icon buttons, form fields, spinners, sliders, tabs and segmented controls.
+3. **Surfaces.** Cards, notices, dialogs/sheets, popovers, page headers, empty states.
+4. **Layout.** One edge (no inset page blocks), one padding down a page, the spacing scale, status colours to tones, greys to `muted`.
+5. **Small parts and flows.** Pills to Badge/Tag, progress bars, tables, avatars, step-by-step flows to Wizard.
+
+For each wave:
+
+1. **Codemod the mechanical part.** Read `references/codemods.md` first: it has the patterns, and the asserts that stop a codemod silently doing nothing.
+2. **Hand-migrate the rest in parallel.** Split the remaining files into groups that don't overlap, and give each group to a subagent in its own git worktree. Include the decisions sheet, `kit.md` and the wave's rules in every brief.
+3. **Verify by rendering.**
+   - Type-check, then run the tests and the guards.
+   - Run `audit-render.mjs --shots`, plus `--dark` and `--width 390`.
+   - Look at the screenshots of the screens the wave touched. Interactive changes need a real edit, a save and a reload, not just a render (`pitfalls.md` §7).
+4. **Lock in progress:** `check-kit.mjs --update-baseline`. It only ever lowers counts.
+5. **Open one PR for the wave.** Report the counts before and after (`check-kit.mjs --report`).
+
+**Exit:** every ratchet metric is 0 (or each remaining one is justified with `kit-exempt:`), and the render audit is clean in all three modes.
+
+### Phase 5: Writing (≈1 h)
+
+1. Write `WRITING.md` from `assets/WRITING.template.md`. The defaults are 10 rules (sentence case, verbs on buttons, no "AI" in labels, "…", calm past tense, one name per thing, arrows as icons, "e.g." with no comma, plain words). Put the product's own names in `properNames`.
+2. Run `check-writing.mjs --list`. Convert Title Case with `toSentenceCase` from the same script, **then review every changed string by hand**: proper names and plan names are where the converter is wrong (`pitfalls.md` §6).
+3. Switch `check:writing` to failing mode in CI.
+
+### Phase 6: Lock it in (≈15 min)
+
+- Add a short "Design system" section to the project's agent instructions (CLAUDE.md / AGENTS.md): use the kit, never hardcode a token's value, follow WRITING.md, run the audit after UI changes.
+- Write the traps that were specific to this project into a LEARNINGS file.
+
+## Working with the owner
+
+- **Two check-ins, not twenty.** Phase 1 (decisions) and the PR for each wave. Don't stop mid-wave to ask about a single button; follow the decisions sheet, and list judgement calls in the PR description.
+- **Never merge or deploy without the owner's go-ahead.** Open PRs, report CI, wait for "merge it".
+- **Report honestly.** Give counts before and after, what was verified by rendering, and what was not checked.
+
+## Files in this skill
+
+| File | Read when |
+|---|---|
+| `scripts/inventory.mjs` | Phase 0 |
+| `scripts/check-kit.mjs`, `check-tokens.mjs`, `check-writing.mjs`, `audit-render.mjs`, `lib.mjs` | Phase 2: copy into the project |
+| `references/decisions.md` | Phase 1 |
+| `references/kit.md` | Phase 3, and in every migration brief |
+| `references/codemods.md` | Before writing any codemod (Phase 4) |
+| `references/pitfalls.md` | Before Phase 2, and whenever something "looks done" but you haven't rendered it |
+| `assets/design-system.config.json`, `assets/ci-snippet.yml` | Phase 0 and Phase 2 |
+| `assets/DESIGN-SYSTEM.template.md`, `assets/WRITING.template.md` | Phases 3 and 5 |

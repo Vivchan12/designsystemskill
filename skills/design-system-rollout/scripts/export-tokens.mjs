@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
-import { loadConfig, loadModule, flatten, getPath } from './lib.mjs';
+import { loadConfig, loadModule, flatten, getPath, typeScale } from './lib.mjs';
 
 const cfg = loadConfig();
 const CHECK = process.argv.includes('--check') || process.argv.includes('--notes-stub');
@@ -189,15 +189,19 @@ if (NATIVE) {
   for (const [fam, path] of [['spacing', NM.space], ['radius', NM.radius]])
     for (const [k, v] of Object.entries(flatten(getPath(mod, path) ?? {}, path))) if (typeof v === 'number') T[fam].tokens.push({ name: slug(k), value: `${v}px`, usage: noteFor(slug(k)) });
   for (const [k, v] of Object.entries(flatten(getPath(mod, NM.shadow) ?? {}, NM.shadow))) if (typeof v === 'string') T.shadow.tokens.push({ name: slug(k), value: v, usage: noteFor(slug(k)) });
-  // Type: each style object { fontSize, lineHeight, fontWeight, fontFamily, letterSpacing }.
-  for (const [name, st] of Object.entries(getPath(mod, NM.type) ?? {})) {
-    if (!st || typeof st !== 'object' || typeof st.fontSize !== 'number') continue;
+  for (const w of loadModule.warnings) problems.push(w);
+  // Type: text styles, or a size scale, wherever the tokens keep them; font names become families.
+  const scale = typeScale(mod, { ...cfg.tokenMap, ...cd.module });
+  problems.push(...scale.notes);
+  for (const [key, fam] of Object.entries(scale.fonts)) if (typeof fam === 'string') T.type.families[key] ??= `"${fam}", system-ui, sans-serif`;
+  for (const st of scale.styles) {
+    const name = st.name;
     const style = { name, fontSize: `${st.fontSize}px` };
     if (st.lineHeight) style.lineHeight = `${st.lineHeight}px`;           // React Native line heights are absolute
     if (st.fontWeight) style.fontWeight = Number(st.fontWeight) || st.fontWeight;
     if (st.letterSpacing) style.letterSpacing = `${st.letterSpacing}px`;
     if (st.fontFamily) { const key = st.fontFamily.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); T.type.families[key] ??= `"${st.fontFamily}", system-ui, sans-serif`; style.family = key; }
-    else problems.push(`type style "${name}" has no fontFamily: it renders in the system font on the device`);
+    else if (scale.styles.length && !Object.keys(scale.fonts).length) problems.push(`type style "${name}" has no fontFamily: it renders in the system font on the device`);
     const n = cd.notes[name]; if (n) style.usage = n;
     const conf = cd.textStyles[name] ?? {}; Object.assign(style, conf);
     T.type.groups[0].styles.push(style);

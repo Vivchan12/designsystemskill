@@ -18,8 +18,9 @@
  */
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, basename, extname } from 'node:path';
-import { loadConfig, sourceFiles, classStrings, isComment, isKit, readTokens, loadModule, flatten } from './lib.mjs';
-import { styleBlocks, literal, isTokenRef, FAMILY, touchables, count } from './rn.mjs';
+import { readdirSync, statSync, openSync, readSync, closeSync } from 'node:fs';
+import { loadConfig, sourceFiles, classStrings, isComment, isKit, readTokens, loadModule, flatten, typeScale } from './lib.mjs';
+import { styleBlocks, literal, isTokenRef, FAMILY, touchables, count, colourLiterals } from './rn.mjs';
 import { titleCaseWords } from './check-writing.mjs';
 
 const args = process.argv.slice(2);
@@ -50,12 +51,20 @@ const files = [];
 // ── React Native: style objects instead of class names ──
 const N = { fontSize: tally(), lineHeight: tally(), fontWeight: tally(), letterSpacing: tally(), radius: tally(), gap: tally(), padding: tally(), margin: tally(), height: tally(), colour: tally() };
 const viaToken = Object.fromEntries(Object.keys(N).map(k => [k, 0]));
-const NC = { 'hand-built touchable (Pressable / Touchable*)': tally(), 'touchable with no label and no text (screen readers say "button")': tally(), 'raw <Text> outside the kit': tally(), 'raw <TextInput>': tally(), 'raw <Modal>': tally(), 'raw <ActivityIndicator>': tally(), 'text style with a size but no font family (falls back to the system font)': tally() };
+const NC = { 'hand-built touchable (Pressable / Touchable*)': tally(), 'touchable with no label and no text (screen readers say "button")': tally(), 'touchable under 44 high or wide, with no hitSlop': tally(), 'raw <Text> outside the kit': tally(), 'raw <TextInput>': tally(), 'raw <Modal>': tally(), 'raw <ActivityIndicator>': tally(), 'text style with a size but no font family (falls back to the system font)': tally(), 'reads a palette directly (bypasses the theme hook)': tally(), 'turns text scaling off (allowFontScaling={false})': tally(), 'handles safe areas itself (outside the kit)': tally() };
+const controlH = tally();   // heights of things you tap, not of pictures and bars
+// Direct reads of a theme's palette: `palette.day`, `palette.night`, `palette[mode]`.
+const paletteRoots = [...new Set([].concat(cfg.tokenMap?.colors ?? []).map(p => p.split('.')[0]).filter(Boolean))];
+const paletteRe = paletteRoots.length ? new RegExp(`\\b(?:${paletteRoots.join('|')})(?:\\.(?:${[].concat(cfg.tokenMap?.colors ?? []).map(p => p.split('.').slice(1).join('.')).filter(Boolean).join('|') || '\\w+'})\\b|\\[)`, 'g') : null;
 let usesCustomFont = false;
 function scanNative(f) {
-  for (const b of styleBlocks(f.text)) {
+  const blocks = styleBlocks(f.text);
+  // Colours anywhere in the file (styles, icon props, constants, rgba), counted once.
+  for (const c of colourLiterals(f.text)) bump(N.colour, c.value, f.rel);
+  for (const b of blocks) {
     for (const [k, v] of Object.entries(b.props)) {
       const fam = FAMILY(k);
+      if (fam === 'colour') { if (isTokenRef(v)) viaToken.colour++; continue; }
       if (!fam || !N[fam]) { if (k === 'fontFamily') usesCustomFont = true; continue; }
       const lit = literal(v);
       if (lit !== null) bump(N[fam], String(lit), f.rel);
@@ -63,10 +72,15 @@ function scanNative(f) {
     }
     if (b.props.fontSize && !b.props.fontFamily) bump(NC['text style with a size but no font family (falls back to the system font)'], `line ${b.line}`, f.rel);
   }
-  for (const t of touchables(f.text)) {
+  for (const t of touchables(f.text, blocks)) {
     bump(NC['hand-built touchable (Pressable / Touchable*)'], t.tag, f.rel);
     if (!t.labelled && !t.hasText) bump(NC['touchable with no label and no text (screen readers say "button")'], `line ${t.line}`, f.rel);
+    if (t.height !== null) bump(controlH, String(t.height), f.rel);
+    if (!t.hitSlop && ((t.height !== null && t.height < 44) || (t.width !== null && t.width < 44))) bump(NC['touchable under 44 high or wide, with no hitSlop'], `line ${t.line}`, f.rel);
   }
+  if (paletteRe) for (const m of f.text.matchAll(paletteRe)) bump(NC['reads a palette directly (bypasses the theme hook)'], m[0], f.rel);
+  for (let n = count(f.text, /allowFontScaling=\{\s*false\s*\}|allowFontScaling:\s*false/g); n > 0; n--) bump(NC['turns text scaling off (allowFontScaling={false})'], 'off', f.rel);
+  if (/useSafeAreaInsets|<SafeAreaView\b|initialWindowMetrics|insets\.(top|bottom)/.test(f.text)) bump(NC['handles safe areas itself (outside the kit)'], 'file', f.rel);
   for (const [label, re] of [['raw <Text> outside the kit', /<Text\b/g], ['raw <TextInput>', /<TextInput\b/g], ['raw <Modal>', /<Modal\b/g], ['raw <ActivityIndicator>', /<ActivityIndicator\b/g]])
     for (let n = count(f.text, re); n > 0; n--) bump(NC[label], label, f.rel);
 }
@@ -164,8 +178,11 @@ if (cfg.stack === 'react-native') {
   // A custom font anywhere (the kit, the tokens) means a size with no family falls back to the system font.
   usesCustomFont ||= [...sourceFiles(cfg)].some(f => /fontFamily\s*:/.test(f.text));
   L.push('## At a glance (React Native)', '', '| What | Literal uses | Distinct values | Via a token |', '|---|---|---|---|');
-  for (const [k, label] of [['fontSize', 'Font sizes'], ['lineHeight', 'Line heights'], ['fontWeight', 'Font weights'], ['letterSpacing', 'Letter-spacing'], ['radius', 'Corner radii'], ['gap', 'Gaps'], ['padding', 'Padding'], ['margin', 'Margins'], ['height', 'Heights (controls, rows)'], ['colour', 'Colours (hex / rgba)']])
+  for (const [k, label] of [['fontSize', 'Font sizes'], ['lineHeight', 'Line heights'], ['fontWeight', 'Font weights'], ['letterSpacing', 'Letter-spacing'], ['radius', 'Corner radii'], ['gap', 'Gaps'], ['padding', 'Padding'], ['margin', 'Margins'], ['height', 'Heights, all (pictures, bars, rows, controls)'], ['colour', 'Colours (hex, rgba; styles, icons, constants)']])
     L.push(`| ${label} | ${total(N[k])} | ${N[k].size} | ${viaToken[k]} |`);
+  L.push(`| Control heights (things you tap) | ${total(controlH)} | ${controlH.size} | |`);
+  const maxMult = [...sourceFiles(cfg)].reduce((a, f) => a + count(f.text, /maxFontSizeMultiplier/g), 0);
+  L.push('', `Text scaling: ${maxMult ? `a maximum is set in ${maxMult} place(s)` : 'no maximum set anywhere (maxFontSizeMultiplier)'}; turned off in ${total(NC['turns text scaling off (allowFontScaling={false})'])} place(s) on screens.`);
   L.push('', '## Hand-built UI (React Native)', '', '| Job | Count | Worst files |', '|---|---|---|');
   for (const [k, m] of Object.entries(NC)) if (k !== 'text style with a size but no font family (falls back to the system font)' || usesCustomFont) L.push(`| ${k} | ${total(m)} | ${fileList(m)} |`);
 }
@@ -205,7 +222,9 @@ if (cfg.stack === 'react-native') {
   detail('Corner radii in use', N.radius, 15);
   detail('Gaps in use', N.gap, 15);
   detail('Padding in use', N.padding, 15);
-  detail('Heights in use', N.height, 15, 'Rows and controls. Pick 2–3 standard control heights (at least 44 for anything tappable).');
+  detail('Control heights (things you tap)', controlH, 15, 'Pick 2–3 standard control heights from these, at least 44. A touchable whose height comes from padding alone is not listed: check it on a device.');
+  detail('Colours in use', N.colour, 25, 'Each needs a theme colour, or a `token-exempt` note if it is per-datum (a chart series).');
+  detail('Other heights (pictures, bars, rows)', N.height, 15);
 }
 
 // ── Defined but never used: tokens nobody reaches for ──
@@ -214,6 +233,10 @@ const allSrc = [...sourceFiles(cfg, { extensions: [...cfg.extensions, '.css', '.
 if (cfg.stack === 'react-native' && cfg.tokenModule) {
   try {
     const mod = await loadModule(cfg, cfg.tokenModule);
+    for (const w of loadModule.warnings) L.push('', `_${w}_`);
+    const scale = typeScale(mod, cfg.tokenMap);
+    if (scale.notes.length) L.push('', '## Type scale', '', ...scale.notes);
+    else L.push('', '## Type scale', '', `The tokens define ${scale.styles.length} text sizes: ${scale.sizes.join(', ')}.`);
     const flat = flatten(Object.fromEntries(Object.entries(mod).filter(([k]) => k !== 'default')));
     const tokenSrc = readFileSync(join(cfg.root, cfg.tokenModule), 'utf8');
     const rest = allSrc.replace(tokenSrc, '');
@@ -232,9 +255,52 @@ if (unused.length) L.push('', '## Tokens defined but never used', '', `${unused.
 // ── Files nothing imports: dead components still on the old look ──
 const imported = new Set();
 for (const m of allSrc.matchAll(/(?:from\s+|import\(\s*|require\(\s*)['"]([^'"]+)['"]/g)) imported.add(basename(m[1]).replace(/\.[jt]sx?$/, ''));
-const routesDir = cfg.routesDir ?? (cfg.stack === 'react-native' ? 'app' : null);
-const dead = files.filter(rel => !/(^|\/)(index|App|main|_layout|\+[\w-]+)\.[jt]sx?$/.test(rel) && !(routesDir && rel.startsWith(routesDir + '/')) && !imported.has(basename(rel, extname(rel))));
+// Entry points nothing imports by design: "entries" (e.g. a React Navigation
+// root file, App.tsx), and every file under "routesDir" for file-based routing
+// (expo-router's app/). React Navigation screens are imported by the navigator,
+// so they need no setting.
+let deps = {}; try { const pk = JSON.parse(readFileSync(join(cfg.root, 'package.json'), 'utf8')); deps = { ...pk.dependencies, ...pk.devDependencies }; } catch {}
+const routesDir = cfg.routesDir ?? (deps['expo-router'] ? 'app' : null);
+const entries = new Set(cfg.entries ?? []);
+const dead = files.filter(rel => !entries.has(rel) && !/(^|\/)(index|App|main|_layout|\+[\w-]+)\.[jt]sx?$/.test(rel) && !(routesDir && rel.startsWith(routesDir + '/')) && !imported.has(basename(rel, extname(rel))));
 if (dead.length) L.push('', '## Files nothing imports', '', `Probably dead: old components still on the old look. Check each one (a dynamic import or a route file can look unused), then delete it rather than migrate it: ${dead.slice(0, 30).map(d => `\`${d}\``).join(', ')}${dead.length > 30 ? ' …' : ''}`);
+
+// ── Art: images, illustrations, animation ──
+// Grouped by folder; each base name with the densities it has (@2x, @3x),
+// its size, and whether any source file refers to it.
+const assetDirs = (cfg.assetDirs ?? ['assets', 'src/assets', 'app/assets', 'public']).filter(d => existsSync(join(cfg.root, d)));
+const art = [];
+function* walkAssets(dir) {
+  for (const n of readdirSync(join(cfg.root, dir))) {
+    const rel = `${dir}/${n}`;
+    if (n.startsWith('.') || n === 'node_modules') continue;
+    if (statSync(join(cfg.root, rel)).isDirectory()) yield* walkAssets(rel);
+    else if (/\.(png|jpe?g|webp|gif|svg|json|lottie|riv)$/i.test(n) && !(/\.json$/i.test(n) && !/"(?:fr|ip|op|layers)"/.test(readFileSync(join(cfg.root, rel), 'utf8').slice(0, 400)))) yield rel;
+  }
+}
+const pngSize = (rel) => { try { const fd = openSync(join(cfg.root, rel), 'r'); const b = Buffer.alloc(24); readSync(fd, b, 0, 24, 0); closeSync(fd); return b.toString('ascii', 12, 16) === 'IHDR' ? `${b.readUInt32BE(16)}×${b.readUInt32BE(20)}` : ''; } catch { return ''; } };
+for (const d of assetDirs) for (const rel of walkAssets(d)) art.push(rel);
+if (art.length) {
+  const groups = new Map();
+  for (const rel of art) {
+    const m = rel.match(/^(.*)\/([^/]+?)(@([23])x)?\.(\w+)$/);
+    const key = `${m[1]}/${m[2]}.${m[5]}`;
+    const e = groups.get(key) ?? { folder: m[1], name: `${m[2]}.${m[5]}`, densities: new Set(), size: '', bytes: 0, used: false };
+    e.densities.add(m[4] ? Number(m[4]) : 1);
+    if (!m[4]) e.size = /png$/i.test(rel) ? pngSize(rel) : '';
+    e.bytes += statSync(join(cfg.root, rel)).size;
+    groups.set(key, e);
+  }
+  for (const e of groups.values()) e.used = allSrc.includes(e.name.replace(/\.\w+$/, ''));
+  const raster = [...groups.values()].filter(e => /\.(png|jpe?g|webp)$/i.test(e.name));
+  const usesDensities = raster.some(e => e.densities.size > 1);
+  const missing = usesDensities ? raster.filter(e => !e.densities.has(2) || !e.densities.has(3)) : [];
+  const unusedArt = [...groups.values()].filter(e => !e.used);
+  L.push('', '## Art and images', '', `${groups.size} assets in ${assetDirs.join(', ')}${usesDensities ? `; ${missing.length} raster images missing @2x or @3x` : '; no @2x/@3x files, so each image is used at one size (check they are large enough for a 3× phone)'}; ${unusedArt.length} that no source file mentions.`, '', '| Folder | Asset | Densities | Size | KB | Used |', '|---|---|---|---|---|---|');
+  for (const e of [...groups.values()].sort((a, b) => a.folder.localeCompare(b.folder)).slice(0, 60))
+    L.push(`| ${e.folder} | ${e.name} | ${[...e.densities].sort().map(x => x + 'x').join(' ')} | ${e.size} | ${Math.round(e.bytes / 1024)} | ${e.used ? '' : 'no'} |`);
+  if (groups.size > 60) L.push(`| … | ${groups.size - 60} more | | | | |`);
+}
 
 // ── Zeros that mean "couldn't look" ──
 const shapeZero = total(T.radius) + total(T.padding) + total(T.gap) + total(T.buttonRecipe) + total(T.cardRecipe) === 0;

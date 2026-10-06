@@ -109,32 +109,75 @@ export function detectStack(cfg) {
   return 'css';
 }
 
-/** Load a TypeScript/JavaScript tokens module (React Native keeps tokens as an
- *  object, not CSS). Uses the project's own esbuild (bundles its imports) or
- *  typescript (transpiles one file). Returns the module's exports. */
+/** Load the tokens module (React Native keeps tokens as an object, not CSS)
+ *  and return its exports. Works on an ordinary Expo app: no esbuild needed.
+ *  Every package import (react-native, a hook, expo-*) is replaced by a
+ *  stand-in, because only the plain values the file exports matter here.
+ *  Relative imports are bundled when esbuild is there, else stood in too and
+ *  reported in `loadModule.warnings`. */
+const STUB = "const __s = new Proxy(function () { return __s; }, { get: (t, k) => k === Symbol.toPrimitive ? () => '' : k === 'then' ? undefined : k === 'OS' ? 'ios' : k === 'select' ? (o) => (o && (o.ios ?? o.default)) : k === 'create' ? (o) => o : __s, apply: () => __s, construct: () => __s });\n";
 export async function loadModule(cfg, file) {
+  loadModule.warnings = [];
   const abs = join(cfg.root, file);
   if (!existsSync(abs)) throw new Error(`tokens module not found: ${file}`);
-  // A plain JavaScript module that imports nothing loads as it is.
-  if (/\.m?js$/.test(file) && !/^\s*import\s/m.test(readFileSync(abs, 'utf8'))) return import(pathToFileURL(abs).href);
   const req = createRequire(join(cfg.root, 'package.json'));
   const dir = mkdtempSync(join(tmpdir(), 'ds-tokens-'));
   const out = join(dir, 'tokens.mjs');
   let code;
-  try {
-    const esbuild = req('esbuild');
+  let esbuild = null;
+  try { esbuild = req('esbuild'); } catch {}
+  if (esbuild) {
     const r = await esbuild.build({ entryPoints: [abs], bundle: true, format: 'esm', platform: 'node', write: false, logLevel: 'silent',
-      // A tokens file that imports react-native (Platform, PixelRatio) gets a stand-in.
-      plugins: [{ name: 'rn-stub', setup(b) { b.onResolve({ filter: /^react-native$/ }, () => ({ path: 'rn', namespace: 'stub' })); b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const Platform = { OS: "ios", select: (o) => o.ios ?? o.default }; export const PixelRatio = { get: () => 2, getFontScale: () => 1 }; export const StyleSheet = { create: (o) => o, hairlineWidth: 1 }; export const Dimensions = { get: () => ({ width: 390, height: 844 }) };', loader: 'js' })); } }] });
+      plugins: [{ name: 'stub-packages', setup(b) {
+        b.onResolve({ filter: /^[^./]/ }, a => ({ path: a.path, namespace: 'stub' }));
+        b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: STUB + 'module.exports = __s;', loader: 'js' }));
+        b.onResolve({ filter: /\.(png|jpe?g|gif|webp|svg|ttf|otf|json|lottie)$/ }, a => ({ path: a.path, namespace: 'stub' }));
+      } }] });
     code = r.outputFiles[0].text;
-  } catch (e) {
-    if (e.code !== 'MODULE_NOT_FOUND') throw e;
-    const ts = req('typescript');
-    code = ts.transpileModule(readFileSync(abs, 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
-    if (/^\s*import\s/m.test(code)) throw new Error(`${file} imports other files and esbuild isn't installed to bundle them. Install esbuild, or point "module" at a file that doesn't import.`);
+  } else {
+    let src = readFileSync(abs, 'utf8');
+    if (/\.tsx?$/.test(file)) {
+      const mod = await import('node:module');
+      if (mod.stripTypeScriptTypes) src = mod.stripTypeScriptTypes(src, { mode: 'transform' });
+      else {
+        let ts; try { ts = req('typescript'); } catch { throw new Error(`${file} is TypeScript: use Node 22.13 or later, or install typescript or esbuild in the project.`); }
+        src = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 } }).outputText;
+      }
+    }
+    // Every import becomes the stand-in.
+    src = src.replace(/^\s*import\s+([^'"]*?)\s*from\s*['"]([^'"]+)['"];?/gm, (m, what, from) => {
+      if (from.startsWith('.')) loadModule.warnings.push(`${file} imports ${from}; its values are stand-ins here. If tokens live there, point tokenModule at that file, or install esbuild.`);
+      const parts = [];
+      const def = what.match(/^([A-Za-z_$][\w$]*)/); if (def && !what.startsWith('{') && !what.startsWith('*')) parts.push(`const ${def[1]} = __s;`);
+      const ns = what.match(/\*\s+as\s+([A-Za-z_$][\w$]*)/); if (ns) parts.push(`const ${ns[1]} = __s;`);
+      const named = what.match(/\{([^}]*)\}/); if (named) parts.push(`const { ${named[1].split(',').map(x => x.trim()).filter(Boolean).filter(x => !/^type\s/.test(x)).map(x => x.replace(/\s+as\s+/, ': ')).join(', ')} } = __s;`);
+      return parts.join(' ');
+    }).replace(/^\s*import\s+['"][^'"]+['"];?/gm, '');
+    if (/^\s*export\s+(\*|\{[^}]*\})\s+from/m.test(src)) loadModule.warnings.push(`${file} re-exports from another file; those values aren't read without esbuild.`);
+    code = STUB + src;
   }
   writeFileSync(out, code);
   return import(pathToFileURL(out).href);
+}
+
+/** The type scale, wherever the tokens keep it. Text styles ({ fontSize,
+ *  lineHeight, fontFamily }) in `tokenMap.textStyles` (or `type`, if that's
+ *  what it holds); a plain size scale in `tokenMap.fontSizes`; font names in
+ *  `tokenMap.fonts` (or `type`, when `type` holds only names). */
+export function typeScale(mod, map = {}) {
+  const at = (p) => (p ? getPath(mod, p) : undefined);
+  const styles = [], fonts = {}, notes = [];
+  const typeObj = at(map.type ?? 'type');
+  const holdsStyles = (o) => o && Object.values(o).some(v => v && typeof v === 'object' && typeof v.fontSize === 'number');
+  const holdsNames = (o) => o && Object.values(o).length && Object.values(o).every(v => typeof v === 'string');
+  const styleObj = at(map.textStyles) ?? (holdsStyles(typeObj) ? typeObj : undefined);
+  for (const [name, st] of Object.entries(styleObj ?? {})) if (st && typeof st.fontSize === 'number') styles.push({ name, ...st });
+  for (const [name, v] of Object.entries(at(map.fontSizes) ?? {})) if (typeof v === 'number') styles.push({ name, fontSize: v });
+  Object.assign(fonts, at(map.fonts) ?? (holdsNames(typeObj) ? typeObj : {}));
+  if (!styles.length) notes.push(holdsNames(typeObj)
+    ? `"${map.type ?? 'type'}" holds font names, not sizes. Set tokenMap.textStyles to your text styles, or tokenMap.fontSizes to a size scale, if the app has one; if it has neither, that is the first decision.`
+    : `no type scale found. Set tokenMap.textStyles (styles with fontSize) or tokenMap.fontSizes (a size scale).`);
+  return { styles, fonts, sizes: [...new Set(styles.map(s => s.fontSize))], notes };
 }
 
 /** { 'space.md': 16, 'palette.day.ink': '#22313f', … } */

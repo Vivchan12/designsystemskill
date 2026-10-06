@@ -16,15 +16,25 @@ number in it.
   "srcDirs": ["src", "app"],
   "kitDir": "src/components/ui",
   "tokenModule": "src/theme/tokens.ts",
-  "tokenMap": { "type": "type", "space": "space", "radius": "radius", "colors": ["palette.day", "palette.night"] },
-  "routesDir": "app",
+  "tokenMap": { "textStyles": "type", "space": "space", "radius": "radius", "colors": ["palette.day", "palette.night"] },
+  "entries": ["src/navigation/RootNavigator.tsx"],
+  "assetDirs": ["assets"],
   "writing": { "properNames": ["Product Name", "Character Name"] }
 }
 ```
 
-- `tokenModule`: the file that exports the tokens object. The scripts load it with the project's esbuild or typescript, and stub `react-native` imports (`Platform`, `PixelRatio`) inside it.
+- `tokenModule`: the file that exports the tokens object. It loads on an ordinary Expo app: Node strips the TypeScript itself, and every package it imports (a hook, `react-native`, `expo-*`) is replaced by a stand-in, because only the plain values matter here. A relative import (`./useSettings`) is stood in too, and the report says so. If tokens really live in that other file, point `tokenModule` at it, or install esbuild so it gets bundled.
 - `tokenMap`: where each family lives in that object. List `colors` once per theme, first theme first. The Claude Design export merges them by name, so `palette.day.ink` and `palette.night.ink` become one token, `ink`, with a light and a dark value.
-- `routesDir`: expo-router's `app/` folder. Files there are routes, so they aren't reported as "nothing imports this".
+- **The type scale**, whichever shape it has:
+  - `textStyles`: styles with `fontSize` (and ideally `lineHeight`, `fontFamily`);
+  - `fontSizes`: a plain size scale (`{ body: 15, title: 21 }`);
+  - `fonts`: font names only (`{ serif: 'Serif-SemiBold' }`).
+
+  If `type` holds only font names, the report says so. If the app has neither styles nor a scale, that is the first decision to make, not a reading error.
+- **Navigation:**
+  - **React Navigation:** the screens are imported by the navigator, so nothing is needed. List the navigator file itself (and `App.tsx`, if it isn't at the root) under `entries`, so it isn't reported as unused.
+  - **expo-router:** files in `app/` are routes, and are recognised automatically when expo-router is installed (`routesDir` overrides the folder).
+- `assetDirs`: where the art lives (default `assets`, `src/assets`).
 
 ## Tokens: a TypeScript object, read through a theme hook
 
@@ -43,7 +53,7 @@ export const useTheme = () => palette[useColorScheme() === 'dark' ? 'night' : 'd
 ```
 
 Rules that matter more on native:
-- **Screens never read `palette.day` or `palette.night` directly.** A screen that does is stuck in one mode: it breaks dark mode, or a "night" palette chosen by time of day. Grep for it; it is the native version of a hardcoded hex.
+- **Screens never read `palette.day` or `palette.night` directly.** A screen that does is stuck in one mode: it breaks dark mode, or a "night" palette chosen by time of day. It's the native version of a hardcoded hex; the inventory counts these, and the ratchet holds them (`directPalette`).
 - **A text style always sets a `fontFamily`.** One without falls back to the system font on the device, and the inventory reports these.
 - **Line heights are absolute numbers** in React Native, not multipliers. Store both size and line height per text style, and never one without the other.
 
@@ -51,9 +61,9 @@ Rules that matter more on native:
 
 | Script | On React Native |
 |---|---|
-| `inventory.mjs` | Every style object, inline (`style={{ fontSize: 14 }}`) or in `StyleSheet.create`. It counts the literal values per family (font size, line height, radius, gap, padding, margin, height, colour) and, separately, the values that already go through a token. It also counts hand-built touchables, touchables with no label and no readable text, raw `<Text>`, `<TextInput>`, `<Modal>`, `<ActivityIndicator>`, text styles with no font family, tokens nothing uses, and files nothing imports. |
+| `inventory.mjs` | Every style object, inline (`style={{ fontSize: 14 }}`) or in `StyleSheet.create`, parsed properly, so a template string or a nested object doesn't cut a style short. It reports:<br>• literal values per family, and separately those already through a token;<br>• **control heights**, read from the styles of the touchables themselves and kept apart from pictures and bars;<br>• every colour literal (styles, icon props, constants, rgba), counted once;<br>• the phone checks: touchables under 44 without `hitSlop`, text scaling turned off and whether any maximum is set, screens handling safe areas themselves, and direct palette reads that bypass the theme hook;<br>• hand-built touchables, unlabelled ones, raw `<Text>` and the like, and text styles with no font family;<br>• the type scale the tokens define, tokens nothing uses, and files nothing imports;<br>• an **art inventory**: every image and animation by folder, its densities (flags missing @2x/@3x where the app uses them), pixel size and weight, and any that no file mentions. |
 | `check-tokens.mjs` | A literal that equals a token (`padding: 16` is `space.md`), any hand-set `fontSize`, and a hand-set colour that is a theme colour. |
-| `check-kit.mjs` | The ratchet, with native metrics: `rawFontSize`, `rawSpacing`, `rawRadius`, `rawColour`, `rawTouchable`, `unlabelledTouchable`, `rawText`. |
+| `check-kit.mjs` | The ratchet, with native metrics: `rawFontSize`, `rawSpacing`, `rawRadius`, `rawColour`, `rawTouchable`, `unlabelledTouchable`, `rawText`, `smallTarget`, `directPalette`. |
 | `check-writing.mjs` | The same rules. Proper names can sit under `writing.properNames`. |
 | `export-tokens.mjs` | Reads `tokenModule`, not CSS. |
 | `bundle-kit.mjs` | Builds the kit through `react-native-web` (Expo: `npx expo install react-native-web react-dom`). Without it, the component cards come from captures instead. |

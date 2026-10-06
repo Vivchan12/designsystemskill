@@ -61,6 +61,8 @@ const NATIVE_METRICS = {
   rawTouchable: [(t) => touchables(t).length, '<Button>, <IconButton> or a kit row'],
   unlabelledTouchable: [(t) => touchables(t).filter(x => !x.labelled && !x.hasText).length, 'accessibilityLabel on anything without readable text'],
   rawText:      [(t) => (t.match(/<Text\b/g) ?? []).length, 'the kit\'s text components'],
+  smallTarget:  [(t) => touchables(t).filter(x => !x.hitSlop && ((x.height !== null && x.height < 44) || (x.width !== null && x.width < 44))).length, 'a control at least 44 high, or hitSlop'],
+  directPalette: [(t) => { const roots = [...new Set([].concat(cfg.tokenMap?.colors ?? []).map(p => p.split('.')[0]))].filter(Boolean); return roots.length ? (t.match(new RegExp(`\\b(?:${roots.join('|')})(?:\\.\\w+|\\[)`, 'g')) ?? []).length : 0; }, 'the theme hook (useTheme), never palette.day / palette.night'],
 };
 const BASE = cfg.stack === 'react-native' ? NATIVE_METRICS : DEFAULT_METRICS;
 const PER_FILE = cfg.stack === 'react-native';

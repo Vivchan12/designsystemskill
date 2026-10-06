@@ -31,7 +31,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { loadConfig, readTokens, loadModule, flatten, getPath } from './lib.mjs';
+import { loadConfig, readTokens, loadModule, typeScale } from './lib.mjs';
 
 const cfg = loadConfig();
 const A = cfg.audit ?? {};
@@ -50,7 +50,7 @@ let allowed = A.allowedSizes ?? Object.entries(readTokens(cfg)).filter(([k]) => 
 if (!A.allowedSizes && cfg.stack === 'react-native' && cfg.tokenModule) {
   // React Native: the type scale is the fontSize of each style in the tokens object.
   const mod = await loadModule(cfg, cfg.tokenModule);
-  allowed = [...new Set(Object.entries(flatten(getPath(mod, cfg.tokenMap?.type ?? 'type') ?? {})).filter(([k, v]) => /fontSize$/.test(k) && typeof v === 'number').map(([, v]) => v))];
+  allowed = typeScale(mod, cfg.tokenMap).sizes;
 }
 if (!allowed.length) { console.error(`✗ No type scale: set audit.allowedSizes, or declare ${cfg.typeTokenPrefix}* tokens.`); process.exit(1); }
 

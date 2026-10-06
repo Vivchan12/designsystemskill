@@ -132,7 +132,7 @@ Then:
 
 | Moment | Update |
 |---|---|
-| **Phase 1, decisions** | Before any code changes, put `Main, proposed` beside `Main`: the main screen in the proposed system. The owner signs off by looking at their own main screen. |
+| **Phase 1, decisions** | Before any code changes, add a row titled "Design system: proposed scale" with three boards:<br>• **the main screen as it is now**;<br>• **the same screen in the proposed system**;<br>• **what changes**: each text size, spacing step and control height, before → after.<br>The owner signs off by looking at their own screen. If the main screen changes little, say which screens change most (often the reading-heavy ones: recipes, plans, articles), and add one of those as a second pair. |
 | **Phase 3, the kit** | Create the system; fill the Components row. |
 | **Each migration wave** | Re-capture any screen on the canvas that the wave touched (always `Main`), and publish only those artboards. List them in the PR. |
 | **Any token change** | `npm run design:tokens`, then update the system's `tokens.json` (always sent whole) and reinstall it on the canvas. |

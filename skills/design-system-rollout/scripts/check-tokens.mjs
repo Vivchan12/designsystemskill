@@ -21,7 +21,7 @@
  *   node check-tokens.mjs            # exit 1 on any finding
  *   node check-tokens.mjs --list     # print findings, never fail (for planning)
  */
-import { loadConfig, sourceFiles, classStrings, readTokens, isComment, isKit, loadModule, flatten, getPath } from './lib.mjs';
+import { loadConfig, sourceFiles, classStrings, readTokens, isComment, isKit, loadModule, flatten, getPath, typeScale } from './lib.mjs';
 import { styleBlocks, literal, FAMILY } from './rn.mjs';
 
 const cfg = loadConfig();
@@ -81,8 +81,11 @@ async function native() {
   const map = { type: 'type', space: 'space', radius: 'radius', colors: ['colors'], ...cfg.tokenMap };
   const pick = (path) => flatten(getPath(mod, path) ?? {}, path);
   const byValue = (flat, keyTest = () => true) => { const o = {}; for (const [k, v] of Object.entries(flat)) if (keyTest(k) && (typeof v === 'number' || typeof v === 'string')) o[String(v).toLowerCase()] ??= k; return o; };
-  const typeFlat = pick(map.type);
-  const sizes = new Set(Object.entries(typeFlat).filter(([k, v]) => typeof v === 'number' && (/fontSize$/.test(k) || !/lineHeight|letterSpacing|fontWeight/.test(k))).map(([, v]) => v));
+  for (const w of loadModule.warnings) console.warn(`! ${w}`);
+  const scale = typeScale(mod, map);
+  for (const n of scale.notes) console.warn(`! ${n}`);
+  const sizes = new Set(scale.sizes);
+  const typeFlat = Object.fromEntries(scale.styles.map(st => [st.name, st.fontSize]));
   const space = byValue(pick(map.space)), radius = byValue(pick(map.radius));
   const colour = {}; for (const p of [].concat(map.colors)) Object.assign(colour, byValue(pick(p)));
   const found = Object.keys(typeFlat).length + Object.keys(space).length + Object.keys(radius).length + Object.keys(colour).length;

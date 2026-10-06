@@ -58,7 +58,7 @@ Usually three: chip (6–8px), card (12px), frame or dialog (16–20px), plus
 - **Tones** (each with a tint, an ink and a border that pass contrast in both themes): neutral, info, success, warning, danger.
 - **Muted text:** one grey, tuned to pass 4.5:1 on the page background in both themes. It replaces every `text-gray-N`.
 - **Surfaces:** `panel` (cards, dialogs) and `popover` (chrome, menus, anything floating), so a menu reads as above the page in dark mode.
-- **Per-datum colours** (chart series, persona colours) stay raw, each marked `token-exempt:` with the reason.
+- **Per-datum colours** (chart series, per-category colours) stay raw, each marked `token-exempt:` with the reason.
 
 ## 5. Dark mode and phone
 
@@ -89,7 +89,7 @@ clears. See `kit.md` for each component's API.
 
 - Sentence case everywhere: yes (recommended).
 - Proper names that keep their capitals: the product's tool and screen names, framework terms, plan names, people, partner products. **List them** (they go in the config's `properNames`).
-- One name per thing: list the old or alternate names to retire, e.g. `"VP Canvas" → "Value Proposition"`.
+- One name per thing: list the old or alternate names to retire, e.g. `"Order Log" → "Order History"`.
 - Buttons start with a verb; no "AI" in labels (the icon says it); "…" while working; calm past tense when done; no "!".
 - UK or US spelling?
 

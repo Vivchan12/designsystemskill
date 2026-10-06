@@ -14,8 +14,8 @@
  *   - "..." instead of "…"
  *   - a typed arrow (→) in a label
  *   - "e.g.," with a comma
- *   - "AI" as a label prefix ("Generate AI Playbook")
- *   - a second name for a tool ("Opportunity Solution Tree", "Value Map")
+ *   - "AI" as a label prefix ("Generate AI Summary")
+ *   - a second name for a tool ("Order Log" when it is called "Order History")
  */
 import { loadConfig, sourceFiles, isComment, isKit } from './lib.mjs';
 
@@ -23,8 +23,8 @@ const cfg = loadConfig();
 const W = cfg.writing ?? {};
 
 // Proper names keep their capitals mid-sentence. Multi-word names are matched
-// as whole phrases, so "Business Model" (a product's tool name) stays
-// capitalised while "Model" alone ("Model drivers") does not. Put the
+// as whole phrases, so "Order History" (a product's screen name) stays
+// capitalised while "History" alone ("History of changes") does not. Put the
 // project's tool names, framework terms, people and products in
 // design-system.config.json → properNames (phrases) / properWords (single words).
 export const PROPER_PHRASES = [...(cfg.properNames ?? [])];
@@ -70,7 +70,7 @@ export function toSentenceCase(text) {
   return t.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[+i]);
 }
 
-// One name per thing: { "Opportunity Solution Tree": "Opportunity Tree" } in
+// One name per thing: { "Order Log": "Order History" } in
 // design-system.config.json → writing.otherNames flags the old name anywhere.
 const OTHER_NAMES = Object.entries(W.otherNames ?? {}).map(([old, name]) => [new RegExp(`\\b${old.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`), name]);
 
@@ -81,7 +81,7 @@ const LABEL_PROPS = 'label|title|actionLabel|finishLabel|nextLabel|cancelLabel|l
 export function uiStrings(line, prev = '') {
   const out = [];
   for (const m of line.matchAll(/>\s*([^<>{}]*[A-Za-z][^<>{}]*?)\s*</g)) out.push({ kind: 'text', text: m[1] });
-  // Text that runs on past the end of the line: `icon="fa-play">Start pitch simulation`
+  // Text that runs on past the end of the line: `icon="fa-play">Start practice session`
   const tail = line.match(/[^=]>\s*([^<>{}]*[A-Za-z][^<>{}]*)$/);
   if (tail && !/^\s*</.test(tail[1])) out.push({ kind: 'text', text: tail[1].trim() });
   // A line of bare text inside an element opened on the line above.

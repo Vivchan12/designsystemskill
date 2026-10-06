@@ -5,6 +5,8 @@
  *
  *   node status.mjs           # report only: reads the project, writes nothing
  *   node status.mjs --save    # also record this run in design-system-status.json (commit it)
+ *   node status.mjs --save --log ~/notes/myapp-status.json   # keep the log OUTSIDE the repo
+ *                                                          # (read-only test runs: nothing written to the project)
  *
  * First run: the current state of every phase, the headline counts, and the
  * plan in order. Later runs: the same, plus what moved since the last saved
@@ -14,8 +16,9 @@
  * It reads; it never changes code. Counts come from inventory.mjs --json and
  * check-kit.mjs --json, so they mean exactly what those scripts mean.
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { spawnSync, execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from './lib.mjs';
@@ -23,7 +26,10 @@ import { loadConfig } from './lib.mjs';
 const cfg = loadConfig();
 const here = dirname(fileURLToPath(import.meta.url));
 const SAVE = process.argv.includes('--save');
-const LOG = join(cfg.root, cfg.statusFile ?? 'design-system-status.json');
+// The log can live outside the project (--log, or DS_STATUS_LOG), so a read-only
+// run still has something to compare with next time.
+const logArg = process.argv.includes('--log') ? process.argv[process.argv.indexOf('--log') + 1] : process.env.DS_STATUS_LOG;
+const LOG = logArg ? resolve(logArg.replace(/^~(?=\/)/, homedir())) : join(cfg.root, cfg.statusFile ?? 'design-system-status.json');
 const NATIVE = cfg.stack === 'react-native';
 
 const run = (script, ...args) => {
@@ -133,6 +139,7 @@ L.push('', '_Phases are read from the repo (files, scripts, CI, counts), not rem
 console.log(L.join('\n'));
 if (SAVE) {
   log.runs.push(now);
+  mkdirSync(dirname(LOG), { recursive: true });
   writeFileSync(LOG, JSON.stringify(log, null, 2) + '\n');
-  console.log(`\nSaved as run ${log.runs.length} in ${LOG.replace(cfg.root + '/', '')}. Commit it, so the next session can compare.`);
+  console.log(`\nSaved as run ${log.runs.length} in ${LOG.startsWith(cfg.root + '/') ? LOG.replace(cfg.root + '/', '') + '. Commit it, so the next session can compare.' : LOG + ' (outside the project; nothing in the repo changed).'}`);
 }

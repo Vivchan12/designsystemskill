@@ -58,6 +58,7 @@ node <skill>/scripts/status.mjs          # read-only
 - **First run.** Show the owner the full report: where each phase stands (read from the repo, with the evidence), the headline counts, and the plan in order. Agree on what this session will do before changing anything.
 - **Every later run.** Lead with "Since last time": the phases newly done, the counts that moved (before → after, better or worse), and anything that regressed. Then say what is still left and what this session will tackle.
 - **At the end of a session**, run it with `--save` and commit `design-system-status.json`, so the next session (yours or someone else's) can compare against it.
+- **Read-only or trial runs** keep the log outside the project instead: `--save --log ~/notes/<project>-status.json`. Nothing in the repo changes, and the next run with the same `--log` still compares against it.
 
 The phases are read from evidence in the repo, never from what a session
 remembers: the config, `docs/design-decisions.md` marked "Signed off", the

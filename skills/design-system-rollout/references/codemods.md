@@ -85,4 +85,4 @@ two passes:
    - "e.g.," → "e.g."
    - hype words → plain words
 4. **Review every printed change.** Revert wrongly lowercased names, add them to `properNames`, and run again.
-5. **Update tests that match old strings** (`/Generate AI Playbook/i`). Only the string changes; what the test checks stays the same.
+5. **Update tests that match old strings** (`/Generate AI Summary/i`). Only the string changes; what the test checks stays the same.

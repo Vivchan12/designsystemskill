@@ -213,7 +213,7 @@ if (web) detail('Pill recipes', T.pillRecipe, 10);
 if (web) detail('Radii', T.radius, 12);
 if (web) detail('Padding values', T.padding, 15, 'A spacing scale usually needs 5 rungs between things (e.g. 6 · 8 · 12 · 16 · 20) and 3–4 insets for panels.');
 if (web) detail('Gap / space values', T.gap, 15);
-detail('Raw hex colours', T.hex, 20, 'Each needs a token, or a `token-exempt` note if it is per-datum (chart series, persona colours).');
+detail('Raw hex colours', T.hex, 20, 'Each needs a token, or a `token-exempt` note if it is per-datum (chart series, per-category colours).');
 if (web) detail('Palette colours', T.paletteColour, 20, 'Status colours picked per screen. Map to tones: success, warning, danger, info.');
 detail('Title Case labels (sample)', W.titleCase, 15);
 if (cfg.stack === 'react-native') {

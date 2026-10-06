@@ -98,6 +98,11 @@ put('src/screens/Today.tsx', readFileSync(join(dir, 'src/screens/Today.tsx'), 'u
 const st2 = run('status.mjs');
 check('status: a restart reports phases newly done', /Done since then: 1\. Decisions signed off/.test(st2.out), st2.out);
 check('status: a restart reports counts that fell', /Hand-set font sizes \| 2 \| 1 \| ↓ better/.test(st2.out), st2.out);
+const ext = join(mkdtempSync(join(tmpdir(), 'ds-log-')), 'notes', 'status.json');
+const st3 = run('status.mjs', '--save', '--log', ext);
+check('status: --log keeps the log outside the project', /outside the project/.test(st3.out) && JSON.parse(readFileSync(ext, 'utf8')).runs.length === 1, st3.out);
+const st4 = run('status.mjs', '--log', ext);
+check('status: a later run compares with the outside log', /last saved run/.test(st4.out), st4.out);
 check('status: without --save it writes nothing', JSON.parse(readFileSync(join(dir, 'design-system-status.json'), 'utf8')).runs.length === 1);
 
 // ── An ordinary Expo app: no esbuild, a TypeScript tokens file that imports a
@@ -134,11 +139,11 @@ const s = StyleSheet.create({
   bar: { height: 4, backgroundColor: '#E5D3A8' },
 });
 `);
-put2('assets/art/garden.png', Buffer.from('89504e470d0a1a0a0000000d49484452000003e8000002ee0806000000', 'hex'));
-put2('assets/art/garden@2x.png', 'x');
+put2('assets/art/scene.png', Buffer.from('89504e470d0a1a0a0000000d49484452000003e8000002ee0806000000', 'hex'));
+put2('assets/art/scene@2x.png', 'x');
 put2('assets/art/hill.png', 'x');
 put2('assets/icons/unused-leaf.png', 'x');
-put2('src/screens/Art.tsx', "export const art = [require('../../assets/art/garden.png'), require('../../assets/art/hill.png')];\n");
+put2('src/screens/Art.tsx', "export const art = [require('../../assets/art/scene.png'), require('../../assets/art/hill.png')];\n");
 put2('design-system.config.json', JSON.stringify({
   srcDirs: ['src'], kitDir: 'src/components/ui', tokenModule: 'src/theme/tokens.ts', entries: ['src/navigation/Root.tsx'],
   tokenMap: { type: 'type', fontSizes: 'fontSize', space: 'space', colors: ['palette.day', 'palette.night'] },

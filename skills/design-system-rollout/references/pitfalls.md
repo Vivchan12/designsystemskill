@@ -55,12 +55,12 @@ Read this before writing guards (§1) or codemods (§2–§4).
 
 ## 6. Writing conversions
 
-- **Sentence-casing is phrase-aware or it is wrong.** "Business Model" (a tool name) keeps its capitals; "Model drivers" doesn't. Put multi-word names in `properNames` *before* converting.
+- **Sentence-casing is phrase-aware or it is wrong.** "Order History" (a screen name) keeps its capitals; "History of changes" doesn't. Put multi-word names in `properNames` *before* converting.
 - **Each sentence starts fresh.** A capital after ". " is not Title Case.
 - **Hyphenated plan and product names** ("Self-Starter") split into words. Add them as phrases.
-- **Some capitals are framework terms inside their own tool.** For example, "Value Map" is the right half of a Value Proposition canvas. Keep them with `writing-exempt:` and the reason, even where the "one name per thing" rule would rename them elsewhere.
+- **Some capitals are framework terms inside their own tool.** For example, a method's own named parts ("Quick Wins" in a prioritising matrix). Keep them with `writing-exempt:` and the reason, even where the "one name per thing" rule would rename them elsewhere.
 - **Lowercasing breaks acronyms.** `focus.replace(/^./, toLowerCase)` turned "TAM" into "tAM". Lowercase the first letter only when the second is lowercase.
-- **JSX text that wraps onto its own line** (`<Button …>\n  Start Pitch\n</Button>`) is invisible to a single-line regex. The bundled check reads the previous line for this. About 75 labels hid this way.
+- **JSX text that wraps onto its own line** (`<Button …>\n  Start Session\n</Button>`) is invisible to a single-line regex. The bundled check reads the previous line for this. About 75 labels hid this way.
 - **Review every converted string by hand.** The converter does 90% of the work; the remaining 10% are names.
 
 ## 7. Process

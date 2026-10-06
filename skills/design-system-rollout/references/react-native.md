@@ -106,7 +106,7 @@ device or simulator at the end of each wave (below).
 ## Art, illustration and animation are part of the system
 
 For a product whose look is its illustrations (an engraved style, a
-character, a garden that grows), those assets are design-system parts as much
+character, a scene that changes over time), those assets are design-system parts as much
 as the buttons are:
 
 - **An asset inventory:** every illustration, frame and icon, with its size, where it's used, and its source file. List any that are missing at 2× or 3×.

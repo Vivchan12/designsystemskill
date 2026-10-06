@@ -1,6 +1,6 @@
 ---
 name: guided-product-flows
-description: Make a multi-tool app (canvases, workspaces, dashboards, modules) work as one product. Give every tool a step-by-step "Guide me" path built from the decisions only the user can make. Connect the tools' data through one declared map, so an upstream edit flags what is built on it for review instead of silently breaking or overwriting it. Make sure nothing on screen claims more than the data behind it. Use this whenever someone wants wizards, guided setup, onboarding flows or a "guide me" mode; asks how data should flow or sync between screens or tools; reports that changing one thing doesn't update another, or that a "review changes" button does nothing; or wants AI to help fill in a tool without taking over. Use it even if they only say "make it easier to use step by step", "link the tools together", or "the canvases don't talk to each other".
+description: Make a multi-tool app (canvases, workspaces, dashboards, modules) work as one product. Give every tool a step-by-step "Guide me" path built from the decisions only the user can make. Connect the tools' data through one declared map, so an upstream edit flags what is built on it for review instead of silently breaking or overwriting it. Make sure nothing on screen claims more than the data behind it. Use this whenever someone wants wizards, guided setup, onboarding flows or a "guide me" mode; asks how data should flow or sync between screens or tools; reports that changing one thing doesn't update another, or that a "review changes" button does nothing; or wants AI to help fill in a tool without taking over; or wants the guides shown on the product's Claude Design canvas. Use it even if they only say "make it easier to use step by step", "link the tools together", or "the canvases don't talk to each other".
 ---
 
 # Guided product flows
@@ -52,6 +52,8 @@ Not every tool needs a wizard. Use `references/choosing.md` to propose one per t
 Propose the steps for each guide using `references/step-recipes.md`; most tools
 match a recipe there. Ask the owner to correct the list in one pass.
 
+If the product has a Claude Design canvas, show each proposed guide on it as a row of artboards, one per step, with the options it would really gather from the owner's data. A step with nothing to offer shows up empty before anyone builds it (`references/claude-design.md`).
+
 **Exit:** the owner has signed off each tool's path and steps.
 
 ### Phase 2: Build the guides (most of the time)
@@ -78,6 +80,8 @@ skeletons):
 Build guides in parallel: one subagent per tool, each in its own worktree,
 each briefed with `guide-pattern.md`, the tool's signed-off steps and the
 data-flow rules.
+
+If the product has a Claude Design canvas, put each built guide on it as a row of artboards, one per step, matched to the screenshots, and update the main screen's artboard if a guide's entry point is there (`references/claude-design.md`).
 
 **Exit:** `flow-audit.mjs` shows every tool with a path; the tests pass; the screenshots have been looked at.
 
@@ -132,4 +136,5 @@ Fix each one, and add a test that fails without the fix.
 | `references/guide-pattern.md` | Phase 2, and in every guide-building brief |
 | `references/data-flow.md` | Phase 3 |
 | `references/honesty.md` | Phase 4, and whenever a number or badge appears on screen |
+| `references/claude-design.md` | Phases 1–3, if the product has a Claude Design canvas: the guides on the design file, and keeping the main screen on it current |
 | `assets/flows.config.json`, `assets/DATA-FLOW.template.md` | Phases 0 and 3 |

@@ -1,6 +1,6 @@
 ---
 name: design-system-rollout
-description: Turn an app's scattered UI (hand-styled buttons, ad-hoc font sizes, one-off cards, raw colours, inconsistent labels) into one enforced design system — tokens, a component kit, CI guards and a writing guide — and migrate every screen onto it. Use this whenever someone wants to make a product's UI consistent, "put the design elements into a system", build or adopt a component library, clean up typography/spacing/colours across a codebase, add a design-token or type-scale guard, audit UI drift, standardise button/card/dialog styles, or write a UI copy style guide — even if they only say "the app looks inconsistent", "tidy up the design", or "make every screen use the same components". Works best on React + Tailwind; the process and guards adapt to other stacks.
+description: Turn an app's scattered UI (hand-styled buttons, ad-hoc font sizes, one-off cards, raw colours, inconsistent labels) into one enforced design system — tokens, a component kit, CI guards and a writing guide — and migrate every screen onto it. Use this whenever someone wants to make a product's UI consistent, "put the design elements into a system", build or adopt a component library, clean up typography/spacing/colours across a codebase, add a design-token or type-scale guard, audit UI drift, standardise button/card/dialog styles, write a UI copy style guide, or create or update the product's Claude Design file (design system and screens canvas) from the code — even if they only say "the app looks inconsistent", "tidy up the design", or "make every screen use the same components". Works best on React + Tailwind; the process and guards adapt to other stacks.
 ---
 
 # Design system rollout
@@ -16,6 +16,8 @@ Three layers, and screens only ever touch the top one:
 1. **Tokens.** Named values (type rungs, colours, radii, spacing, surfaces) as CSS custom properties.
 2. **Components.** A kit (e.g. `components/ui/`) built only from tokens. Components take *meaning* (variant, tone, size), never styling classes. `className` is for layout only.
 3. **Guards.** CI checks that block anything bypassing 1–2, plus a render audit that asks the page what it *is*.
+
+Alongside them, a **design file in Claude Design**: a Design System (tokens and components, exported from the code) and a canvas of the product's screens, with the main screen first. It is updated in the same piece of work as any change to the main screen, so the design never falls behind the code (`references/claude-design.md`).
 
 ## Why the original took three days, and what this skill changes
 
@@ -63,6 +65,8 @@ Propose; don't interrogate. Every question should come with a recommended answer
 and the evidence for it ("13 font sizes in use; 10px, 11px and 12px cover 70%
 of them, so I propose rungs at 11, 12, 13, 15, 17, 22, 28, 38").
 
+Show the decisions on the product itself: on the Claude Design canvas (create it if there isn't one, after checking for an existing one), put the current main screen as `Main` and the same screen in the proposed system as `Main, proposed`, side by side. The owner signs off by looking at their own main screen (`references/claude-design.md`).
+
 **Exit:** the owner has signed off (or edited) the decisions sheet.
 
 ### Phase 2: Foundations and guards (≈1–2 h)
@@ -92,7 +96,9 @@ Text/Heading/Eyebrow, then Button, then Field and its inputs, then Card and Noti
 - Write `DESIGN-SYSTEM.md` from `assets/DESIGN-SYSTEM.template.md` as you go, with the component table and the rules.
 - Add a small unit test per component for the guarantees that matter: ARIA roles, `type="button"`, focus trap in Modal, `loading` disabling the button.
 
-**Exit:** the gallery renders cleanly in light and dark, and `audit-render.mjs` passes on the gallery route.
+Then create the **Claude Design system**: run `scripts/export-tokens.mjs` (it writes the tokens in the format Claude Design reads and lists tokens with no usage note), write the missing notes, and add a card per component and the brand book from `DESIGN-SYSTEM.md`. Install it on the canvas and fill the Components row (`references/claude-design.md`).
+
+**Exit:** the gallery renders cleanly in light and dark, `audit-render.mjs` passes on the gallery route, and the design system has a usage note on every token and a card for every component.
 
 ### Phase 4: Migrate in five waves (most of the day)
 
@@ -114,7 +120,8 @@ For each wave:
    - Run `audit-render.mjs --shots`, plus `--dark` and `--width 390`.
    - Look at the screenshots of the screens the wave touched. Interactive changes need a real edit, a save and a reload, not just a render (`pitfalls.md` §7).
 4. **Lock in progress:** `check-kit.mjs --update-baseline`. It only ever lowers counts.
-5. **Open one PR for the wave.** Report the counts before and after (`check-kit.mjs --report`).
+5. **Update the design file.** If the wave changed the main screen or any screen on the canvas, update those artboards to match the new screenshots. Always check `Main`.
+6. **Open one PR for the wave.** Report the counts before and after (`check-kit.mjs --report`), and say which artboards were updated.
 
 **Exit:** every ratchet metric is 0 (or each remaining one is justified with `kit-exempt:`), and the render audit is clean in all three modes.
 
@@ -128,6 +135,7 @@ For each wave:
 
 - Add a short "Design system" section to the project's agent instructions (CLAUDE.md / AGENTS.md): use the kit, never hardcode a token's value, follow WRITING.md, run the audit after UI changes.
 - Write the traps that were specific to this project into a LEARNINGS file.
+- Write both Claude Design links into `DESIGN-SYSTEM.md` and the agent instructions, with the rule: a change to the main screen updates its artboard in the same piece of work, a change to a token re-runs `export-tokens.mjs`, and nobody creates a second canvas (`references/claude-design.md`).
 
 ## Working with the owner
 
@@ -144,6 +152,7 @@ For each wave:
 | `references/decisions.md` | Phase 1 |
 | `references/kit.md` | Phase 3, and in every migration brief |
 | `references/codemods.md` | Before writing any codemod (Phase 4) |
+| `references/claude-design.md`, `scripts/export-tokens.mjs` | Phases 1, 3, 4 and 6: the design file, and keeping the main screen on it up to date |
 | `references/pitfalls.md` | Before Phase 2, and whenever something "looks done" but you haven't rendered it |
 | `assets/design-system.config.json`, `assets/ci-snippet.yml` | Phase 0 and Phase 2 |
 | `assets/DESIGN-SYSTEM.template.md`, `assets/WRITING.template.md` | Phases 3 and 5 |

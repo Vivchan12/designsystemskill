@@ -47,6 +47,15 @@ Three layers, and screens only ever touch the top one:
 Seven phases: inventory, decisions, foundations and guards, the kit, five
 migration waves, the writing guide, and locking it in.
 
+**The design file, in Claude Design.** The skill also makes two Claude Design
+artifacts from the code: a **design system** (tokens exported from your CSS,
+one card per component, the brand book), and a **canvas of your screens**, with
+the main screen first, then its states, setup flow, key pages and the kit. You
+sign off the decisions by looking at your own main screen redrawn in the
+proposed system. After that, any change to the main screen updates its
+artboard in the same piece of work, so the design file never falls behind the
+code.
+
 **Ask for it like this:**
 
 > Our app's UI is inconsistent: buttons, font sizes and cards are all styled by hand. Put the design elements into one system.
@@ -66,6 +75,7 @@ node $S/check-kit.mjs                         # fail if hand-built UI grew in an
 node $S/check-kit.mjs --report                # what's left to migrate, worst files first
 node $S/check-writing.mjs --list              # Title Case, "!", "...", typed arrows, old names
 node $S/audit-render.mjs --shots              # measure the rendered page (needs playwright-core)
+node $S/export-tokens.mjs                     # tokens in Claude Design's format, light and dark
 ```
 
 ## guided-product-flows
@@ -78,7 +88,9 @@ planners, models, reports). Three things, in order:
 3. **Honesty.** Twelve patterns where a screen claims more than its data: sample data with a button that writes it, scores that can't be earned, handlers that drop what they're given, links nothing ever writes, and more.
 
 Six phases: map, decide each tool's path (one sign-off), build the guides,
-connect the data, honesty sweep, verify and hand over.
+connect the data, honesty sweep, verify and hand over. If the product has a
+Claude Design canvas, each guide goes on it as a row of steps: proposed at
+sign-off, then replaced by the built screens.
 
 **Ask for it like this:**
 

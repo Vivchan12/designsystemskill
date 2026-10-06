@@ -21,6 +21,19 @@
     "exempt": []
   },
 
+  "claudeDesign": {
+    "name": "Product Name",
+    "themes": { "light": [":root"], "dark": [".dark"] },
+    "include": ["--ds-"],
+    "prefixes": {
+      "type": "--ds-text-",
+      "font": "--ds-font-",
+      "radius": "--ds-radius-",
+      "spacing": "--ds-space-",
+      "shadow": "--ds-shadow-"
+    }
+  },
+
   "baseUrl": "http://localhost:5173",
   "routes": ["/", "/settings", "/design-system"],
   "audit": {

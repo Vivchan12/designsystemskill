@@ -45,11 +45,26 @@ export default function ValueProp({ state, setValueProps }) {
   return <Wizard>{SAMPLE_ROWS.map(r => <p key={r}>{r}</p>)}</Wizard>;
 }\n`,
   'Summary.tsx': 'export default () => <div>summary</div>;\n',
+  'Checkin.tsx': `import { readTongue } from './reading';
+export default function Checkin({ state, setCheckins }) {
+  const concern = state.profiles.find(c => c.active);
+  const latest = state.profiles?.[0];
+  return <Wizard />;
+}\n`,
+  'reading.ts': `const SAMPLE_READING = { pattern: 'damp-heat' };
+export async function readTongue(photo) {
+  try {
+    const res = await fetch('/api', { body: photo });
+    return await res.json();
+  } catch (e) {
+    return { ...SAMPLE_READING, error: e.message };
+  }
+}\n`,
 };
 const config = {
-  tools: { Setup: 'Setup.tsx', Personas: 'Personas.tsx', 'Value prop': 'ValueProp.tsx', Summary: 'Summary.tsx' },
+  tools: { Setup: 'Setup.tsx', Personas: 'Personas.tsx', 'Value prop': 'ValueProp.tsx', Summary: 'Summary.tsx', Checkin: 'Checkin.tsx' },
   root: 'Setup',
-  flowMap: { file: 'flow.ts', ids: { Setup: 'SETUP', Personas: 'PERSONAS', 'Value prop': 'VALUE_PROP', Summary: 'SUMMARY' } },
+  flowMap: { file: 'flow.ts', ids: { Setup: 'SETUP', Personas: 'PERSONAS', 'Value prop': 'VALUE_PROP', Summary: 'SUMMARY', Checkin: 'PERSONAS' } },
   types: ['types.ts'],
 };
 const run = project(files, config);
@@ -66,6 +81,9 @@ check('sample data shown read-only is not flagged', !/SAMPLE_ROWS/.test(r.out));
 check('`profiles[0]` on a user list is flagged; split()[0] is not', /profiles\[0\]/.test(r.out) && !/split/.test(r.out.split('## 3')[1]));
 check('a link field read but never written is flagged', /`profileId` is declared and read but never written/.test(r.out), r.out.split('## 3')[1]);
 check('a link field that is written is not flagged', !/`basedOnId` is declared/.test(r.out));
+check('`?.[0]` on a user list is flagged', /profiles\[0\]`: with several/.test(r.out) && r.out.includes('Checkin.tsx#profiles[0]'));
+check('`.find()` on a user list is flagged', r.out.includes('Checkin.tsx#profiles.find()'));
+check('sample content returned on failure is flagged, even as an object', r.out.includes('reading.ts#fallback.SAMPLE_READING'), r.out.split('## 3')[1]);
 check('the report exits 0 without --strict', r.code === 0);
 check('--strict exits 1 while anything is open', run('--strict').code === 1);
 
@@ -76,7 +94,7 @@ const fixed = project({
   'flow.ts': files['flow.ts'].replace("// SUMMARY: ['VALUE_PROP'],   (a comment: must not count as listed)", "SUMMARY: ['VALUE_PROP'],"),
 }, {
   ...config, checklistMarker: '<Checklist\\b',
-  ignore: { 'Personas.tsx#onPick._quote': 'test', 'Personas.tsx#EXAMPLE_QUOTES': 'test', 'ValueProp.tsx#profiles[0]': 'test', 'types#profileId': 'test' },
+  ignore: { 'Personas.tsx#onPick._quote': 'test', 'Personas.tsx#EXAMPLE_QUOTES': 'test', 'ValueProp.tsx#profiles[0]': 'test', 'types#profileId': 'test', 'Checkin.tsx#profiles[0]': 'test', 'Checkin.tsx#profiles.find()': 'test', 'reading.ts#fallback.SAMPLE_READING': 'test' },
 });
 const f = fixed('--strict');
 check('--strict passes once every item is fixed or resolved', f.code === 0, f.out);

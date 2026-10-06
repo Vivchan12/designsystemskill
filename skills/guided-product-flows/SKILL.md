@@ -36,7 +36,7 @@ and tell the owner in one line. Don't stop because the product isn't a
 | Part | Applies when | In a tabs-and-screens app (e.g. a mobile consumer app) |
 |---|---|---|
 | **Paths** (Phases 1–2) | A screen opens empty, or asks the user for several decisions at once | Onboarding, a plan or goal builder, a first check-in, any empty state with no way in. Most screens that just show content need nothing (`none, because`). |
-| **Data flow** (Phase 3) | Something on one screen is derived from data entered on another | A quiz result that drives today's recommendations; a profile that drives a plan. Ask: when the source changes, does what's built on it update, flag, or silently go stale? |
+| **Data flow** (Phase 3) | Something on one screen is derived from data entered on another | A quiz result that drives today's recommendations; a profile that drives a plan. If the app recomputes on every render, you only need the lighter version: one owner per fact, and a decision on each saved copy (`data-flow.md`, "When the app recomputes on every render"). |
 | **Honesty** (Phase 4) | Always | Every app has numbers, badges, streaks, scores, sample content and fallbacks that can claim more than the data holds. |
 
 In this skill a **tool** is any screen or tab that owns data of its own (a
@@ -152,9 +152,11 @@ Follow `references/data-flow.md`. In short:
 
 ### Phase 4: Honesty sweep (≈1 h)
 
-Work through all twelve patterns in `references/honesty.md` for every tool.
-flow-audit scripts four of them (§1, §2, §10, §11); the other eight need
-reading:
+Work through all fourteen patterns in `references/honesty.md` for every tool,
+most consequential first: in a health, money or safety product, anything that
+changes what the user is told to do comes first. flow-audit scripts parts of
+five (§1, §2, §9, §10, §11). **No signals from the script is not an
+all-clear**; the rest need reading:
 
 1. Fiction with a button: sample data a control can write into the user's record. *(scripted)*
 2. The counter that replaced the thing it counted: a handler that drops its data. *(scripted)*
@@ -164,16 +166,18 @@ reading:
 6. One fact computed in several places.
 7. One relationship built in two directions (push and import).
 8. Safety nets that never fire (retries, fallbacks, error handlers).
-9. Failure that pretends to succeed (a canned result shown as generated).
-10. Links nothing ever writes. *(scripted)*
-11. The input picked for the user (`[0]`). *(scripted)*
+9. Failure that pretends to succeed: a canned result shown as real, or a labelled sample that loses its label once saved. *(fallbacks scripted)*
+10. Links nothing ever writes *(scripted)*, and answers asked for and never used.
+11. The input picked for the user (`[0]`, `.find()`). *(scripted)*
 12. Writes that go around the state.
+13. A state some screens forget (pregnancy, a paused account).
+14. A question with only one answer.
 
 Fix each one, and add a test that fails without the fix. For a flagged signal
 that turns out to be fine, add its key to `ignore` in `flows.config.json`
 with the reason, so it stays resolved.
 
-**Exit:** `flow-audit.mjs --strict` exits 0, and every one of the twelve has been checked for every tool.
+**Exit:** `flow-audit.mjs --strict` exits 0, and every one of the fourteen has been checked for every tool.
 
 ### Phase 5: Verify and hand over
 

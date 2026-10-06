@@ -5,6 +5,10 @@ usually behind something that looked cosmetic. They matter more than visual
 bugs, because they put invented content into the user's own record or show
 them a confidence they haven't earned.
 
+**Rank findings by what the user does with them.** In a health, money or
+safety product, anything that changes what someone is told to eat, take, pay
+or skip comes first, ahead of a wrong badge or count.
+
 ## 1. Fiction with a button on it
 
 A fixture list ("Distribution Network", "Campus Ambassador Program") had a
@@ -36,6 +40,10 @@ why the data goes nowhere. flow-audit flags these.
 A "fit score" computed its own numerator (`Math.ceil(total / 2)`), so it sat
 near 50 forever while the copy promised "validate to push past 80".
 
+Two quieter versions: a comparison with nothing ("Up 25 on last week" for a
+user who wasn't here last week), and an average that counts days from before
+the user started.
+
 **Rule:** a number shown to a user must come from real state and must be
 movable by an action they can take. If there's nothing to measure yet, say so
 ("4 of 9 blocks filled") rather than rendering a plausible-looking number.
@@ -44,6 +52,11 @@ movable by an action they can take. If there's nothing to measure yet, say so
 
 An investor email template always said "we've validated key unit economics
 and assembled an investor-ready deck", for a venture with neither.
+
+The same goes for the product's own copy:
+- **a promise nothing keeps:** onboarding asks for reminder times, the profile says "Twice a day", and nothing is ever sent;
+- **a reward for nothing:** "Recipe unlocked" when nothing is ever locked;
+- **an outcome that is really a timer:** "Plan complete" when the days run out, whatever the user did.
 
 **Rule:** generated copy (emails, summaries, badges, exports) includes each
 claim only when the work behind it exists, with the real number: "tested
@@ -63,6 +76,10 @@ automatically when each call is made.
 "How far along is this, and what's next?" was implemented four times, and the
 copies disagreed: one hardcoded a step as never done, another skipped setup,
 so a new user was sent to a step with nothing to read from.
+
+Two forms this takes that are easy to miss:
+- **Dates:** one screen uses the UTC date and another the local one, so for a user eight hours ahead of UTC, "today" is two different days before 8am.
+- **A user's own value next to a default:** the calendar uses her period length, while the home screen uses a fixed five days.
 
 **Rule:** one function owns a derived fact. Components own its presentation,
 never its computation. **The tell:** two screens that disagree about the
@@ -90,6 +107,13 @@ fails when the fix is reverted.
 On error, a generator "fell back" to a canned plan, a sample list or a
 template thesis, and showed it as if it had been generated.
 
+**The label has to travel with the data.** A fallback that is marked "Sample"
+where it first appears, and then saved, turns real: the next screen reads the
+saved record, sees no label, and shows it as the user's own, or feeds it into
+the next generation. Mark it on the record itself (`isSample: true`,
+`source: 'fallback'`). Every screen that reads it either shows the mark or
+leaves it out.
+
 **Rule:** on failure, show the error and change nothing. "Nothing was changed.
 Try again." A canned result shown as generated is the bug.
 
@@ -98,6 +122,11 @@ Try again." A canned result shown as generated is the bug.
 A view model declared `profileId` so a change to that persona could flag the
 canvas built on it. No code ever set it, so the staleness check guarding it
 could never fire, and the feature looked finished in review.
+
+The other direction too: **asked and never used.** Onboarding asks what she
+eats and promises "I will build on what you already eat"; the answer is saved
+and shown on her profile, and no recommendation ever reads it. Either use it
+where the copy says, or stop promising.
 
 **Rule:** every field another tool reads from must have a writer. Grep each
 link field (`*Id`, `basedOn*`, `source*`) in the types for an assignment.
@@ -122,3 +151,23 @@ component state and was lost on reload.
 **Rule:** every write goes through the one state path that saves and records
 edits. A direct database call in a component, or user work held only in
 local component state, is data that will be lost or resurrected.
+
+## 13. A state some screens forget
+
+A pregnant user has no cycle, but only one screen checked for pregnancy. The
+home screen said "Day 1 of your cycle, menstrual phase", and recommended
+recipes for that phase.
+
+**Rule:** a state that changes what applies to the user (pregnancy, a paused
+account, a child profile, a different country's rules) is checked in one
+place, by the function that owns the derived fact (§6), not on each screen.
+**The tell:** grep for the state's flag. If it appears on one screen out of
+several that show the facts it should change, the others are wrong.
+
+## 14. A question with only one answer
+
+"Does this sound like you?", with every item already ticked and no way to say
+no, and the answer saved as fact either way.
+
+**Rule:** a confirmation must be able to come back "no". It starts unticked,
+or offers "not me" and "not sure", and a "no" changes what is saved.

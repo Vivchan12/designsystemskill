@@ -19,6 +19,20 @@ automatically.**
 6. **Edits are content, not references.** An edit is recorded only when a slice's content changes. Reloading data replaces every object with an identical copy; comparing references would flag every tool on load.
 7. **New tracking starts from now.** Only edits recorded by this mechanism count, never creation dates. Shipping the feature must not light up existing users' data with "changes" from months ago.
 
+## When the app recomputes on every render
+
+Many apps, mobile ones especially, derive everything from the saved inputs on
+each render: change the constitution and Today recomputes. Most of the
+flag-and-review machinery below is then unnecessary. Do two things instead:
+
+1. **One owner per derived fact** (honesty §6): the current phase, "today", which plan applies. One function each, used by every screen.
+2. **Find the copies.** Anything saved *from* another value no longer updates by itself. For each copy, decide which kind it is:
+   - **A dated snapshot**, correct as it was (a check-in result, a receipt). Keep it, and show its date.
+   - **A copy that should follow its source**, such as a plan copied into the user's record, or AI output made for a profile that has since changed. Store what it was made from (`madeFor: { constitution, phase }`), show it ("Made for: Damp, follicular"), and when the source changes, offer to refresh it. Never refresh it silently.
+
+Use the full flag-and-review model only for copies the user edits after they're
+made, where a silent refresh would overwrite their work.
+
 ## The pieces (TypeScript sketch)
 
 ```ts

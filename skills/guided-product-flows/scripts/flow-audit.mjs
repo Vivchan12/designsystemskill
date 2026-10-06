@@ -9,7 +9,8 @@
  *      - a handler whose LAST parameter is ignored (`handleAdd(src, _quote)`)
  *      - sample data inside a list whose items have a control that writes
  *      - a link field (`profileId`, `basedOn…`, `source…`) that is read but never written
- *      - `list[0]` on what is probably a user's list: an input picked for them
+ *      - `list[0]`, `list?.[0]` or `list.find()` on a user's list: an input picked for them
+ *      - a failure path that returns sample, fallback or template content
  *
  *   node flow-audit.mjs              # report (exit 0)
  *   node flow-audit.mjs --strict     # exit 1 on any gap or unresolved signal: use it as a phase's exit check
@@ -132,7 +133,8 @@ if (!ONLY_GUIDES) {
   const mapSrc = cfg.flowMap?.file && existsSync(join(ROOT, cfg.flowMap.file)) ? code(read(join(ROOT, cfg.flowMap.file))) : '';
   const fromMap = [...new Set([...mapSrc.matchAll(/['"]([a-z]\w*s)['"]/g)].map(m => m[1]))];
   const lists = cfg.collections ?? fromMap;
-  const collections = lists.length ? new RegExp(`\\.(${lists.join('|')})\\[0\\]`) : null;
+  // `.profiles[0]`, `.profiles?.[0]`, and `.profiles.find(...)`: each picks one for the user.
+  const collections = lists.length ? new RegExp(`\\.(${lists.join('|')})(?:\\?\\.)?(\\[0\\]|\\.find\\()`) : null;
   const NOT_USER_LIST = /^(args|parts|segments|matches|files|entries|keys|values|errors|touches|changedTouches|results|candidates|choices|lines|rows|cols|words|chunks|tokens|items|options|steps|children|nodes|elements|records|messages|content|data)$/;
 
   for (const f of toolFiles) {
@@ -155,9 +157,17 @@ if (!ONLY_GUIDES) {
         if (writes) add(`${rel(f)}#${name}`, `${rel(f)}:${i + 1}`, `sample data \`${name}\` is listed with a control that writes: can it enter the user's record? (honesty §1)`);
       }
       // 3d. An input picked for the user.
-      const z = collections ? line.match(collections) : line.match(/\.(\w+s)\[0\]/);
-      if (z && !NOT_USER_LIST.test(z[1]) && !/split\(|match\(|exec\(/.test(line))
-        add(`${rel(f)}#${z[1]}[0]`, `${rel(f)}:${i + 1}`, `\`${z[1]}[0]\`: with two, is the first the right one? Let the user choose, and show which was used (honesty §11)`);
+      const z = collections ? line.match(collections) : line.match(/\.(\w+s)(?:\?\.)?(\[0\])/);
+      if (z && !NOT_USER_LIST.test(z[1]) && !/split\(|match\(|exec\(/.test(line)) {
+        const how = z[2] === '[0]' ? '[0]' : '.find()';
+        add(`${rel(f)}#${z[1]}${how}`, `${rel(f)}:${i + 1}`, `\`${z[1]}${how}\`: with several, ${how === '[0]' ? 'is the first' : 'is the first match'} the right one? Let the user choose, or use them all, and show which was used (honesty §11)`);
+      }
+      // 3e. A failure path that hands back sample, fallback or template content.
+      // Labelled or not where it first appears, once saved it reads as real.
+      if (i > 0 && lines.slice(Math.max(0, i - 15), i + 1).some(l => /\bcatch\s*[({]|\.catch\(|!\w*\.ok\b|\bstatus\s*>=?\s*[45]00/.test(l))) {
+        const fb = line.match(/\b(?:return|resolve\(|set\w+\(|=)\s*(?:\{\s*\.\.\.)?\s*(\w*(?:[Ss]ample|SAMPLE|[Ff]allback|FALLBACK|[Mm]ock|MOCK|[Dd]emo|DEMO|[Tt]emplate|TEMPLATE|[Cc]anned|CANNED|[Pp]laceholder|PLACEHOLDER)\w*)/);
+        if (fb) add(`${rel(f)}#fallback.${fb[1]}`, `${rel(f)}:${i + 1}`, `on failure this hands back \`${fb[1]}\`: is it marked as not real on the record itself, so every screen that later shows or uses it can tell? (honesty §9)`);
+      }
     });
   }
 
@@ -186,7 +196,7 @@ if (!ONLY_GUIDES) {
     failures += sig.length;
   } else out.push('None open.');
   if (resolved.length) out.push('', `Resolved (${resolved.length}):`, '', '| Key | Why it is fine |', '|---|---|', ...resolved);
-  out.push('', '_Scripted: honesty §1, §2, §10, §11. The other eight patterns need reading (Phase 4)._');
+  out.push('', '_Scripted: honesty §1, §2, §9 (fallbacks), §10, §11. The rest need reading (Phase 4), and "no signals" is not an all-clear._');
 }
 console.log(out.join('\n'));
 if (STRICT && failures) { console.log(`\n✗ ${failures} open item${failures > 1 ? 's' : ''}.`); process.exit(1); }

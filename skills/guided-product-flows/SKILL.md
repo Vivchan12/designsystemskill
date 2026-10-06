@@ -1,12 +1,17 @@
 ---
 name: guided-product-flows
-description: Make a multi-tool app (canvases, workspaces, dashboards, modules) work as one product. Give every tool a step-by-step "Guide me" path built from the decisions only the user can make. Connect the tools' data through one declared map, so an upstream edit flags what is built on it for review instead of silently breaking or overwriting it. Make sure nothing on screen claims more than the data behind it. Use this whenever someone wants wizards, guided setup, onboarding flows or a "guide me" mode; asks how data should flow or sync between screens or tools; reports that changing one thing doesn't update another, or that a "review changes" button does nothing; or wants AI to help fill in a tool without taking over; or wants the guides shown on the product's Claude Design canvas. Use it even if they only say "make it easier to use step by step", "link the tools together", or "the canvases don't talk to each other".
+description: Make an app made of several screens or modules that users work in, and that build on each other (canvases, planners, workspaces, dashboards, reports), work as one product. In this skill each of those is a "tool"; that means a part of the product, not an AI or developer tool. Give every tool a step-by-step "Guide me" path built from the decisions only the user can make. Connect the tools' data through one declared map, so an upstream edit flags what is built on it for review instead of silently breaking or overwriting it. Make sure nothing on screen claims more than the data behind it. Use this whenever someone wants wizards, guided setup, onboarding flows or a "guide me" mode; asks how data should flow or sync between screens or tools; reports that changing one thing doesn't update another, or that a "review changes" button does nothing; or wants AI to help fill in a tool without taking over; or wants the guides shown on the product's Claude Design canvas. Use it even if they only say "make it easier to use step by step", "link the tools together", or "the canvases don't talk to each other".
 ---
 
 # Guided product flows
 
-An app made of many tools (canvases, modules, workspaces) fails its users in
-three predictable ways:
+**"Tool" here means a screen or module your users work in**: a canvas, a
+planner, a model, a report. It doesn't mean an AI tool or a developer tool.
+The skill fits products where those parts build on each other (personas feed
+a value proposition, which feeds a business model, which feeds a pitch). It
+doesn't fit an app that is mostly one screen.
+
+Such an app fails its users in three predictable ways:
 
 1. **Blank pages.** Each tool opens as an empty form. People don't know which decision to make first, or that another tool already holds half the answer.
 2. **Broken threads.** Tools are built on each other, but nothing says so. Change the customer and the pricing page still describes the old one, and nobody is told.

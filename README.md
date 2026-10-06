@@ -6,7 +6,7 @@ took days by hand.
 | Skill | What it does |
 |---|---|
 | [`design-system-rollout`](skills/design-system-rollout/) | Takes an app from "every screen styled by hand" to "every screen built from one kit, and CI stops it drifting back". |
-| [`guided-product-flows`](skills/guided-product-flows/) | Gives every tool in a multi-tool product a way in that isn't a blank page, connects the data between tools, and removes anything on screen that claims more than the data behind it. |
+| [`guided-product-flows`](skills/guided-product-flows/) | For products made of several screens or modules that build on each other. Gives each one a step-by-step way in instead of a blank page, connects the data between them, and removes anything on screen that claims more than the data behind it. |
 
 ## Install
 
@@ -87,8 +87,10 @@ node $S/check-design-sync.mjs                 # which artboards are behind the c
 
 ## guided-product-flows
 
-For products made of several tools that build on each other (canvases,
-planners, models, reports). Three things, in order:
+For products made of several screens or modules that users work in, and that
+build on each other: canvases, planners, models, reports. The skill calls each
+of these a "tool"; that means a part of your product, not an AI or developer
+tool. It doesn't fit an app that is mostly one screen. Three things, in order:
 
 1. **A path into every tool.** Each tool gets one of: a guide (3–5 decisions, options gathered from the other tools), a checklist, a setup brief, or triage for items that arrive unjudged. Logic lives in a plain, tested module; the component only renders it.
 2. **Data that flows, and flags.** Which tool reads from which is declared once. An upstream edit flags the tools built on it, and a person reviews them. Nothing downstream is rewritten automatically.

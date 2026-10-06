@@ -89,5 +89,16 @@ check('export-tokens: theme colours merge into one token per name', ink?.value.l
 check('export-tokens: a type style keeps its line height and family', JSON.stringify(t?.type.groups[0].styles[0]) === JSON.stringify({ name: 'body', fontSize: '15px', lineHeight: '22px', family: 'inter' }), JSON.stringify(t?.type));
 check('export-tokens: spacing in px', t?.spacing.tokens.some(x => x.name === 'space-md' && x.value === '16px'));
 
+// status: first run, then a session's progress, then the update.
+const st1 = run('status.mjs', '--save');
+check('status: the first run lists phases and a plan', /first run/.test(st1.out) && /## Where it stands/.test(st1.out) && /## Next/.test(st1.out), st1.out);
+check('status: an undone phase says what is missing, not the requirement', /no docs\/design-decisions\.md/.test(st1.out), st1.out);
+put('docs/design-decisions.md', '# Design decisions\n\nSigned off: 2026-10-06\n');
+put('src/screens/Today.tsx', readFileSync(join(dir, 'src/screens/Today.tsx'), 'utf8').replace('fontSize: 14.5, ', ''));
+const st2 = run('status.mjs');
+check('status: a restart reports phases newly done', /Done since then: 1\. Decisions signed off/.test(st2.out), st2.out);
+check('status: a restart reports counts that fell', /Hand-set font sizes \| 2 \| 1 \| ↓ better/.test(st2.out), st2.out);
+check('status: without --save it writes nothing', JSON.parse(readFileSync(join(dir, 'design-system-status.json'), 'utf8')).runs.length === 1);
+
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 process.exit(failed ? 1 : 0);

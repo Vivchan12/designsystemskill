@@ -13,6 +13,7 @@
  *   node check-kit.mjs                     # CI: fail if any file's count went up
  *   node check-kit.mjs --update-baseline   # lock in improvements (only ever lowers)
  *   node check-kit.mjs --report            # counts left per metric, worst files first
+ *   node check-kit.mjs --json              # totals per metric (status.mjs reads these)
  *
  * Metrics are regexes over source lines (below). Turn one off, or add your
  * own, under "kit.metrics" in design-system.config.json:
@@ -87,6 +88,11 @@ if (args.includes('--init')) {
   if (existsSync(BASELINE) && !args.includes('--force')) { console.error(`${BASELINE} exists. The ceiling is set once; use --update-baseline to lower it.`); process.exit(1); }
   writeFileSync(BASELINE, JSON.stringify(sorted(current), null, 2) + '\n');
   console.log(`Stack: ${cfg.stack}. Baseline: ${Object.keys(current).length} files, ${Object.keys(METRICS).map(k => `${k} ${sum(current, k)}`).join(', ')}.`);
+  process.exit(0);
+}
+
+if (args.includes('--json')) {
+  console.log(JSON.stringify({ stack: cfg.stack, totals: Object.fromEntries(Object.keys(METRICS).map(k => [k, sum(current, k)])) }));
   process.exit(0);
 }
 

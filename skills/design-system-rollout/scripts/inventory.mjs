@@ -155,12 +155,6 @@ const fileList = (m, n = 5) => {
   return [...per.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([f, k]) => `${f} (${k})`).join(', ');
 };
 
-if (JSON_OUT) {
-  const obj = {};
-  for (const [k, m] of Object.entries({ ...T, ...C, ...W })) obj[k] = { total: total(m), variants: m.size };
-  console.log(JSON.stringify({ files: files.length, ...obj }, null, 2));
-  process.exit(0);
-}
 
 const L = [];
 const row = (label, m, unit = 'variants') => L.push(`| ${label} | ${total(m)} | ${m.size} ${unit} |`);
@@ -247,6 +241,16 @@ const shapeZero = total(T.radius) + total(T.padding) + total(T.gap) + total(T.bu
 if (cfg.stack !== 'react-native' && shapeZero && files.length > 5)
   L.splice(6, 0, `> ⚠ **No radii, padding, gaps, buttons or cards were found in ${files.length} files.** That almost always means this scan can't read how the project styles its UI (stack detected: ${cfg.stack}), not that it's clean. Check "stack" in the config before trusting any zero below.`, '');
 
+if (JSON_OUT) {
+  const obj = { stack: cfg.stack, files: files.length, unusedTokens: unused.length, deadFiles: dead.length };
+  for (const [k, m] of Object.entries({ ...T, ...C, ...W })) obj[k] = { total: total(m), variants: m.size };
+  if (cfg.stack === 'react-native') {
+    for (const [k, m] of Object.entries(N)) obj[`native.${k}`] = { total: total(m), variants: m.size, viaToken: viaToken[k] };
+    for (const [k, m] of Object.entries(NC)) obj[`native.${k}`] = { total: total(m), variants: m.size };
+  }
+  console.log(JSON.stringify(obj, null, 2));
+  process.exit(0);
+}
 const report = L.join('\n') + '\n';
 if (OUT) { writeFileSync(OUT, report); console.log(`Wrote ${OUT} (${files.length} files scanned).`); }
 else process.stdout.write(report);

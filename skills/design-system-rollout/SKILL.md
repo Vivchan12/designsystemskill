@@ -46,6 +46,25 @@ couldn't read it, not that the app is clean, and the inventory says so.
 - **Full rollout**: the app's UI is styled by hand. Follow every phase below.
 - **Design file only**: the app already has its tokens and kit in code, and the owner wants the Claude Design file (design system and screens canvas), or wants it brought up to date. Do Phase 0 steps 1, 3 and 6 (the stack, the config, sample data). Then follow `references/claude-design.md` from start to finish: tooling into the repo, export and check the tokens, bundle the kit, capture the screens, publish, record the links, and set up the sync check. Skip the decisions sheet, guards and migration waves. **Exit:** both artifacts are published and linked from the repo, and `check-design-sync.mjs` reports in sync.
 
+## Every session starts with status
+
+A rollout spans several sessions, often several people. Never start from
+memory. Start every session with:
+
+```bash
+node <skill>/scripts/status.mjs          # read-only
+```
+
+- **First run.** Show the owner the full report: where each phase stands (read from the repo, with the evidence), the headline counts, and the plan in order. Agree on what this session will do before changing anything.
+- **Every later run.** Lead with "Since last time": the phases newly done, the counts that moved (before → after, better or worse), and anything that regressed. Then say what is still left and what this session will tackle.
+- **At the end of a session**, run it with `--save` and commit `design-system-status.json`, so the next session (yours or someone else's) can compare against it.
+
+The phases are read from evidence in the repo, never from what a session
+remembers: the config, `docs/design-decisions.md` marked "Signed off", the
+token files, the guard scripts and CI, the kit folder, the ratchet's counts
+per wave, `WRITING.md`, and the agent instructions. If a phase is marked
+wrong, fix the evidence, not the report.
+
 ## The process
 
 Follow these phases in order. Each has an exit check; don't start the next
@@ -158,6 +177,7 @@ For each wave:
 
 ## Working with the owner
 
+- **Report from status, not from memory.** Open with `status.mjs`'s update, and close with what moved this session and what's next.
 - **Two check-ins, not twenty.** Phase 1 (decisions) and the PR for each wave. Don't stop mid-wave to ask about a single button; follow the decisions sheet, and list judgement calls in the PR description.
 - **Never merge or deploy without the owner's go-ahead.** Open PRs, report CI, wait for "merge it".
 - **Report honestly.** Give counts before and after, what was verified by rendering, and what was not checked.
@@ -173,6 +193,7 @@ For each wave:
 | `references/codemods.md` | Before writing any codemod (Phase 4) |
 | `references/claude-design.md` | The design-file-only route, and Phases 1, 3, 4 and 6 of a full rollout |
 | `scripts/export-tokens.mjs` (+ `.test.mjs`), `bundle-kit.mjs`, `check-design-sync.mjs`, `audit-render.mjs --capture` | Copy into the project's `scripts/design/`: tokens, component previews, screen capture, staleness check |
+| `scripts/status.mjs` | The start and end of every session |
 | `references/react-native.md` | Before Phase 0 on a React Native or Expo app |
 | `references/pitfalls.md` | Before Phase 2, and whenever something "looks done" but you haven't rendered it |
 | `assets/design-system.config.json`, `assets/ci-snippet.yml` | Phase 0 and Phase 2 |

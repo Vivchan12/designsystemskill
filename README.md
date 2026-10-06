@@ -19,13 +19,45 @@ took days by hand.
 
 ```bash
 git clone https://github.com/Vivchan12/designsystemskill.git /tmp/productskills
-mkdir -p ~/.claude/skills && cp -r /tmp/productskills/skills/* ~/.claude/skills/
+git -C /tmp/productskills checkout <commit>     # optional: pin the version your team agreed on
+rm -rf ~/.claude/skills/design-system-rollout ~/.claude/skills/guided-product-flows
+cp -r /tmp/productskills/skills/design-system-rollout /tmp/productskills/skills/guided-product-flows ~/.claude/skills/
 ```
+
+This replaces only these two skill folders. If `/tmp/productskills` already
+exists, `git -C /tmp/productskills pull` first, or the copy will be stale.
 
 For one project only, copy them into `<project>/.claude/skills/` instead.
 
 **In the Claude apps**: download a file from `dist/` and open it in a
 conversation. The file card has a **Save skill** button.
+
+## Using these in a team: what's safe
+
+Both skills are built to start read-only and to change code only in pull
+requests that a person merges. The edges worth knowing before you run them:
+
+| Step | What it touches | Risk |
+|---|---|---|
+| Phase 0 (inventory, status, flow-audit) | Reads the repo. Writes only a report if you pass `--out`, and the status log with `--save`. | Low. Run it anywhere. |
+| Token export, kit bundle | Load the project's own tokens file and build the kit with the project's esbuild or typescript: **they run the project's code**. Output goes to `claude-design/`. | Fine on your own repo. Don't point them at code you don't trust. |
+| Render audit and capture | Runs your `audit.setup` and `screens` scripts and a headless browser against the app on localhost. | Use sample data only. A setup script that signs in as a real user puts real data into screenshots and captures. |
+| Claude Design (publishing) | Creates artifacts in the account of whoever runs it. They're private until shared. | The design file shows whatever the screens showed: sample data, never real users. |
+| Migration waves, guides, honesty fixes | Change code, one pull request per wave or fix. | Medium. The skills never merge on their own. Review each PR. Run them on a branch, in a separate worktree if another session or agent shares the folder. |
+| `--init`, `--update`, `--update-baseline` | Write baseline and lock files in the repo. | Low, but commit them deliberately: they set what CI enforces. |
+
+**Not yet proven.** Both skills were built on one React and Tailwind app and
+tried read-only on one React Native app. The React Native scripts have passed
+tests on a sample app, not yet a full rollout. Treat their first report on a
+new codebase as something to check against what you see, not as a verdict. A
+report full of zeros on a real app means the scan couldn't read it.
+
+**Pin a version.** This repo changes as the skills improve. Install a specific
+commit, so everyone on the team runs the same version (see Install), and
+update deliberately.
+
+**No secrets in config.** The config files hold paths and names only. Never
+put keys or real user data in them, or in the sample-data script.
 
 ---
 
@@ -64,7 +96,8 @@ If the app already has its design system in code, the skill has a shorter
 > Our app's UI is inconsistent: buttons, font sizes and cards are all styled by hand. Put the design elements into one system.
 
 It starts with an audit and a decisions sheet, and changes no code until you
-have signed those off.
+have signed those off. Every session opens with a status report: where each
+phase stands, what changed since the last session, and what's next.
 
 **Scripts** (plain Node 18+, no dependencies; they read
 `design-system.config.json` in your project root, template in `assets/`):
@@ -84,6 +117,7 @@ node $S/bundle-kit.mjs                        # the kit as one script + styleshe
 node $S/audit-render.mjs --capture <dir>      # each screen's real markup as a Claude Design artboard
 node $S/check-design-sync.mjs                 # which artboards are behind the code
 node $S/native.test.mjs                       # the React Native path
+node $S/status.mjs                            # where the rollout stands, what changed since last time, what's next
 ```
 
 ## guided-product-flows
@@ -139,6 +173,12 @@ describes had been done, against the same task without the skill.
 - **design-system-rollout:** passed 7 of 7 checks with the skill, 4 of 7 without, and finished faster.
 - **guided-product-flows:** with the skill, the run found all three honesty bugs that were later fixed by hand (a dropped quote, a sample list that wrote real data, an unearnable score). Without it, the run missed all three. Patterns 10–12 in its `honesty.md` came from what the run without the skill found.
 
-The audit and planning phases have been run by the skills themselves. The
-later build phases come from work done by hand, and have not yet been run
-end to end by either skill.
+Since then:
+
+- **A second product.** Both skills ran read-only on a React Native app they weren't built from. The honesty sweep found real problems that affect what users are told to do. The design-system inventory found it couldn't read React Native; that support was then added and tested on a sample app (`native.test.mjs`).
+- **The Claude Design path** was run end to end once, on the original product, and the export bugs it found are covered by `export-tokens.test.mjs`.
+- **Each script's tests** (`*.test.mjs`) are written to fail against the bug they describe.
+
+Not yet done: a full rollout run start to finish by the skill, and the build
+phases on React Native. The first report on a new codebase is a starting point
+to check, not a verdict.

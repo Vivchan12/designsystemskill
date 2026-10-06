@@ -35,12 +35,15 @@ conversation. The file card has a **Save skill** button.
 ## Using these in a team: what's safe
 
 Both skills are built to start read-only and to change code only in pull
-requests that a person merges. The edges worth knowing before you run them:
+requests that a person merges. They use no API keys or logins of yours. "Tokens"
+below means **design tokens**: the named colours, font sizes and spacing in
+the app's code. Running a skill uses AI usage on the account of whoever runs
+it. The edges worth knowing before you run them:
 
 | Step | What it touches | Risk |
 |---|---|---|
 | Phase 0 (inventory, status, flow-audit) | Reads the repo. Writes only a report if you pass `--out`, and the status log with `--save`. | Low. Run it anywhere. |
-| Token export, kit bundle | Load the project's own tokens file and build the kit with the project's esbuild or typescript: **they run the project's code**. Output goes to `claude-design/`. | Fine on your own repo. Don't point them at code you don't trust. |
+| Design-token export, kit bundle | Load the project's own design tokens file (its colours, font sizes and spacing; not API keys or login tokens) and build the kit with the project's esbuild or typescript: **they run the project's code**. Output goes to `claude-design/`. | Fine on your own repo. Don't point them at code you don't trust. |
 | Render audit and capture | Runs your `audit.setup` and `screens` scripts and a headless browser against the app on localhost. | Use sample data only. A setup script that signs in as a real user puts real data into screenshots and captures. |
 | Claude Design (publishing) | Creates artifacts in the account of whoever runs it. They're private until shared. | The design file shows whatever the screens showed: sample data, never real users. |
 | Migration waves, guides, honesty fixes | Change code, one pull request per wave or fix. | Medium. The skills never merge on their own. Review each PR. Run them on a branch, in a separate worktree if another session or agent shares the folder. |

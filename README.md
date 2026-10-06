@@ -56,6 +56,9 @@ proposed system. After that, any change to the main screen updates its
 artboard in the same piece of work, so the design file never falls behind the
 code.
 
+If the app already has its design system in code, the skill has a shorter
+**design file only** route: export, bundle, capture, publish, link.
+
 **Ask for it like this:**
 
 > Our app's UI is inconsistent: buttons, font sizes and cards are all styled by hand. Put the design elements into one system.
@@ -75,7 +78,11 @@ node $S/check-kit.mjs                         # fail if hand-built UI grew in an
 node $S/check-kit.mjs --report                # what's left to migrate, worst files first
 node $S/check-writing.mjs --list              # Title Case, "!", "...", typed arrows, old names
 node $S/audit-render.mjs --shots              # measure the rendered page (needs playwright-core)
-node $S/export-tokens.mjs                     # tokens in Claude Design's format, light and dark
+node $S/export-tokens.mjs                     # tokens in Claude Design's format: every theme, fonts, contrast check
+node $S/export-tokens.test.mjs                # the cascade rules the export must get right
+node $S/bundle-kit.mjs                        # the kit as one script + stylesheet, for live component previews
+node $S/audit-render.mjs --capture <dir>      # each screen's real markup as a Claude Design artboard
+node $S/check-design-sync.mjs                 # which artboards are behind the code
 ```
 
 ## guided-product-flows

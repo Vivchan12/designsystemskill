@@ -25,12 +25,25 @@
     "name": "Product Name",
     "themes": { "light": [":root"], "dark": [".dark"] },
     "include": ["--ds-"],
+    "ignoreScopes": ["@media (max-width: 767px) :root"],
     "prefixes": {
       "type": "--ds-text-",
       "font": "--ds-font-",
       "radius": "--ds-radius-",
       "spacing": "--ds-space-",
       "shadow": "--ds-shadow-"
+    },
+    "notes": { "--ds-ink": "Primary text on panel and ground." },
+    "textStyles": { "body": { "lineHeight": 1.45, "fontWeight": 500 } },
+    "fonts": [
+      { "family": "Inter Variable", "src": "node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2", "as": "Inter-Variable.woff2", "weight": "100 900", "style": "normal" }
+    ],
+    "contrast": { "text": ["ds-ink", "ds-ink-muted"], "grounds": ["ds-ground", "ds-panel"], "large": [] },
+    "overrides": { "tokens": {}, "add": {} },
+    "kit": { "namespace": "ProductName", "darkClass": "dark", "previewRoot": "app-shell p-4", "parts": [] },
+    "sync": {
+      "lock": "claude-design.lock.json",
+      "screens": { "Main": ["src/pages/Home.tsx"] }
     }
   },
 
@@ -38,6 +51,7 @@
   "routes": ["/", "/settings", "/design-system"],
   "audit": {
     "setup": "scripts/audit-setup.mjs",
+    "captureRoot": "#root",
     "scope": ".app-shell",
     "headerSelector": "header h1"
   }

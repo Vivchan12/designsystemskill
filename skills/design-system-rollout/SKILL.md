@@ -30,6 +30,11 @@ Alongside them, a **design file in Claude Design**: a Design System (tokens and 
 | Bugs were found by reading code ("looks done") | Verify each wave by **rendering** (screenshots light/dark/phone + `audit-render.mjs`), not by a second grep. |
 | The same traps were hit repeatedly | Read `references/pitfalls.md` before writing any codemod. |
 
+## Two routes
+
+- **Full rollout**: the app's UI is styled by hand. Follow every phase below.
+- **Design file only**: the app already has its tokens and kit in code, and the owner wants the Claude Design file (design system and screens canvas), or wants it brought up to date. Do Phase 0 steps 1, 3 and 6 (the stack, the config, sample data). Then follow `references/claude-design.md` from start to finish: tooling into the repo, export and check the tokens, bundle the kit, capture the screens, publish, record the links, and set up the sync check. Skip the decisions sheet, guards and migration waves. **Exit:** both artifacts are published and linked from the repo, and `check-design-sync.mjs` reports in sync.
+
 ## The process
 
 Follow these phases in order. Each has an exit check; don't start the next
@@ -51,8 +56,9 @@ phase until it passes. Tell the owner which phase you're in as you go.
    - Title Case labels, "!", "..." and typed arrows;
    - classes that can't exist (a palette shade such as `gray-150` that Tailwind doesn't have). These render nothing, silently.
 5. Write a 10-line summary for the owner: the headline counts, the 3 worst areas, and any broken guard or stale doc you found.
+6. **Find or make sample data.** The render audit, the screenshots and the Claude Design capture all need the app to render real screens offline: a signed-in test user with believable content in every main screen. Look for an existing fixture, seed script or stubbed sign-in (tests, Storybook, an e2e setup). If there isn't one, write `scripts/audit-setup.mjs`. It signs in, or stubs the auth and network calls with `page.route(...)`, and loads sample data. Never use a real user's data, and never lorem ipsum. Without it, every later "verify by rendering" step checks an empty or signed-out page.
 
-**Exit:** the owner has seen the summary.
+**Exit:** the owner has seen the summary, and the app renders its main screen with sample data offline.
 
 ### Phase 1: Decisions in one sitting (≈15 min of the owner's time)
 
@@ -96,7 +102,7 @@ Text/Heading/Eyebrow, then Button, then Field and its inputs, then Card and Noti
 - Write `DESIGN-SYSTEM.md` from `assets/DESIGN-SYSTEM.template.md` as you go, with the component table and the rules.
 - Add a small unit test per component for the guarantees that matter: ARIA roles, `type="button"`, focus trap in Modal, `loading` disabling the button.
 
-Then create the **Claude Design system**: run `scripts/export-tokens.mjs` (it writes the tokens in the format Claude Design reads and lists tokens with no usage note), write the missing notes, and add a card per component and the brand book from `DESIGN-SYSTEM.md`. Install it on the canvas and fill the Components row (`references/claude-design.md`).
+Then create the **Claude Design system** (`references/claude-design.md`). Copy the design scripts into the repo. Run `export-tokens.mjs`, and keep fixing its report (scopes, notes, text styles, fonts, contrast) until it exits clean. Run `bundle-kit.mjs`, and fill in each component's preview with its real states. Write the brand book from `DESIGN-SYSTEM.md`. Install the system on the canvas and fill the Components row.
 
 **Exit:** the gallery renders cleanly in light and dark, `audit-render.mjs` passes on the gallery route, and the design system has a usage note on every token and a card for every component.
 
@@ -135,7 +141,7 @@ For each wave:
 
 - Add a short "Design system" section to the project's agent instructions (CLAUDE.md / AGENTS.md): use the kit, never hardcode a token's value, follow WRITING.md, run the audit after UI changes.
 - Write the traps that were specific to this project into a LEARNINGS file.
-- Write both Claude Design links into `DESIGN-SYSTEM.md` and the agent instructions, with the rule: a change to the main screen updates its artboard in the same piece of work, a change to a token re-runs `export-tokens.mjs`, and nobody creates a second canvas (`references/claude-design.md`).
+- Write both Claude Design links into `DESIGN-SYSTEM.md` and the agent instructions, with the rule: a change to the main screen updates its artboard in the same piece of work, a change to a token re-runs `export-tokens.mjs`, and nobody creates a second canvas. Add `check-design-sync.mjs` to CI (report only), so a stale artboard is noticed (`references/claude-design.md`).
 
 ## Working with the owner
 
@@ -152,7 +158,8 @@ For each wave:
 | `references/decisions.md` | Phase 1 |
 | `references/kit.md` | Phase 3, and in every migration brief |
 | `references/codemods.md` | Before writing any codemod (Phase 4) |
-| `references/claude-design.md`, `scripts/export-tokens.mjs` | Phases 1, 3, 4 and 6: the design file, and keeping the main screen on it up to date |
+| `references/claude-design.md` | The design-file-only route, and Phases 1, 3, 4 and 6 of a full rollout |
+| `scripts/export-tokens.mjs` (+ `.test.mjs`), `bundle-kit.mjs`, `check-design-sync.mjs`, `audit-render.mjs --capture` | Copy into the project's `scripts/design/`: tokens, component previews, screen capture, staleness check |
 | `references/pitfalls.md` | Before Phase 2, and whenever something "looks done" but you haven't rendered it |
 | `assets/design-system.config.json`, `assets/ci-snippet.yml` | Phase 0 and Phase 2 |
 | `assets/DESIGN-SYSTEM.template.md`, `assets/WRITING.template.md` | Phases 3 and 5 |

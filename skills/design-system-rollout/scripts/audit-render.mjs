@@ -13,6 +13,7 @@
  *   node audit-render.mjs --dark           # prefers-color-scheme: dark
  *   node audit-render.mjs --width 390      # phone
  *   node audit-render.mjs --strict         # also fail on contrast misses
+ *   node audit-render.mjs --capture <dir>  # + each route's real markup as a Claude Design artboard (<dir>/<name>.dc.html)
  *
  * Config (design-system.config.json):
  *   "baseUrl": "http://localhost:5173",
@@ -22,10 +23,11 @@
  *     "scope": ".app-shell",                  optional: only audit text inside this element
  *     "headerSelector": "header h1",          optional: the element whose box defines the page edge
  *     "allowedSizes": [12, 13, 15, 18, 22, 38]  optional: else read from typeTokenPrefix tokens
+ *     "captureRoot": "#root",               optional: the element captured by --capture (default body)
  *   }
  * Needs playwright or playwright-core installed in the project (npm i -D playwright-core).
  */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
@@ -36,6 +38,7 @@ const A = cfg.audit ?? {};
 const args = process.argv.slice(2);
 const SHOTS = args.includes('--shots'), DARK = args.includes('--dark'), STRICT = args.includes('--strict');
 const WIDTH = Number(args[args.indexOf('--width') + 1]) || 1440;
+const CAPTURE = args.includes('--capture') ? resolve(cfg.root, args[args.indexOf('--capture') + 1]) : null;
 
 const req = createRequire(join(cfg.root, 'package.json'));
 let chromium;
@@ -53,6 +56,8 @@ const page = await context.newPage();
 page.setDefaultTimeout(8000);
 if (setup) await setup(page, { dark: DARK, context });
 if (SHOTS) mkdirSync(join(cfg.root, 'audit-shots'), { recursive: true });
+if (CAPTURE) mkdirSync(CAPTURE, { recursive: true });
+const captured = [];
 
 let offScale = 0, contrast = 0, edges = 0;
 for (const route of cfg.routes) {
@@ -98,6 +103,7 @@ for (const route of cfg.routes) {
     return { off: [...new Set(off)], low: [...new Set(low)], misaligned };
   }, { allowed, scope: A.scope, headerSelector: A.headerSelector });
   if (SHOTS) await page.screenshot({ path: join(cfg.root, 'audit-shots', `${route.replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'home'}-${WIDTH}${DARK ? '-dark' : ''}.png`), fullPage: true });
+  if (CAPTURE) captured.push(await capture(route));
   offScale += r.off.length; contrast += r.low.length; edges += r.misaligned.length;
   if (r.off.length || r.low.length || r.misaligned.length) {
     console.log(`\n${route}`);
@@ -107,5 +113,60 @@ for (const route of cfg.routes) {
   }
 }
 await browser.close();
+if (CAPTURE) {
+  writeFileSync(join(CAPTURE, 'capture.json'), JSON.stringify(captured, null, 2) + '\n');
+  console.log(`\nCaptured ${captured.length} artboards → ${CAPTURE}`);
+  for (const c of captured) console.log(`  ${c.file}  ${c.width}×${c.height}${c.height > 8000 ? '  ✗ taller than 8000px: split it, or capture a narrower part' : ''}${c.images.length ? `  ${c.images.length} images to upload` : ''}${c.empty ? '  ✗ EMPTY: the app rendered nothing here; give audit.setup a signed-in user and sample data' : ''}`);
+}
+
+// The route's real rendered markup, wrapped as a Claude Design artboard: the
+// app's own classes, with the design system's stylesheet and fonts linked.
+// Exact, because it IS the app; faster than redrawing from a screenshot.
+async function capture(route) {
+  const name = (route.replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'Main') + (WIDTH < 600 ? '-phone' : '') + (DARK ? '-dark' : '');
+  const { text, html, height, images } = await page.evaluate((sel) => {
+    const root = (sel && document.querySelector(sel)) || document.body;
+    const clone = root.cloneNode(true);
+    clone.querySelectorAll('script, noscript, iframe, object, embed').forEach(n => n.remove());
+    return { text: root.innerText.trim().length, html: clone.outerHTML, height: Math.ceil(document.documentElement.scrollHeight), images: [...new Set([...root.querySelectorAll('img')].map(i => i.getAttribute('src')).filter(Boolean))] };
+  }, A.captureRoot);
+  const C = cfg.claudeDesign ?? {};
+  const folder = C.folder ?? (C.name ?? 'kit').toLowerCase().replace(/[^a-z0-9_]+/g, '-').replace(/^[-_]+|-+$/g, '');
+  const links = A.captureLinks ?? ['canvas-fonts.css', `ds/${folder}/components/bundle.css`];
+  const dark = (C.kit?.darkClass ?? 'dark');
+  // `{{` would be read as a template hole on the canvas.
+  const body = html.replace(/\{\{/g, '&#123;&#123;');
+  const file = `${name}.dc.html`;
+  writeFileSync(join(CAPTURE, file), `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${name}</title>
+<script src="./support.js"></script>
+${links.map(l => `<link rel="stylesheet" href="${l}">`).join('\n')}
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div${DARK ? ` class="${dark}"` : ''} style="min-height: ${height}px; position: relative">
+${body}
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":${WIDTH},"height":${height}}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
+`);
+  return { route, file, width: WIDTH, height, dark: DARK, images, empty: text < 20 };
+}
 console.log(`\n${cfg.routes.length} routes at ${WIDTH}px${DARK ? ', dark' : ''}: ${offScale} off-scale, ${contrast} contrast, ${edges} edge. Allowed sizes: ${allowed.join(', ')}px.`);
 if (offScale || edges || (STRICT && contrast)) process.exit(1);

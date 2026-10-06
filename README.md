@@ -82,9 +82,11 @@ node $S/audit-render.mjs --shots              # measure the rendered page (needs
 node $S/export-tokens.mjs                     # design tokens in Claude Design's format, every theme, contrast check
 node $S/bundle-kit.mjs                        # the kit as one script + stylesheet, for live component previews
 node $S/audit-render.mjs --capture <dir>      # each screen's real markup as a Claude Design artboard
+    # add --phone, --dark, --signed-out for the variants, and --canvas for the board layout
 node $S/check-design-sync.mjs                 # which artboards are behind the code
 node $S/export-tokens.test.mjs                # tests: the token cascade
 node $S/native.test.mjs                       # tests: the React Native path
+node $S/web.test.mjs                          # tests: the web path and shared scripts
 ```
 
 ## Using it in a team: what's safe

@@ -24,17 +24,21 @@ artifact*, the type wins (see "Verifying").
   System" and "Design". If `DESIGN-SYSTEM.md` or the agent instructions name
   one, update that. A second canvas of the same product splits the comments,
   and nobody knows which is current.
+- **Create the artifacts before reading their reference files.** Each type's
+  reference files (the format, the token grammar, the preview contract) are
+  served from an artifact *of that type*; reading them by the type's own link
+  is refused. So create the Design System and the canvas first (empty is
+  fine), then read `artifact-type/reference/…` from them.
 - **Pick the branch to build from.** Use the deployed branch (usually `main`):
   the design file shows the product people actually use. If main is behind a
   working branch the owner considers current (the UI work is there, not yet
   merged), ask once which one to use. Record the choice: the exporter writes
   `meta.ref` (branch@commit), and the system's `lastChange.via` should name the
   same branch and commit.
-- **Put the tooling in the repo, not in your skills folder.** Copy
-  `scripts/export-tokens.mjs`, `scripts/bundle-kit.mjs` and `scripts/lib.mjs`
-  into the project's `scripts/design/`, together with `check-design-sync.mjs`,
-  `export-tokens.test.mjs`, and `audit-render.mjs` if Phase 2 didn't already
-  copy it. Add npm scripts: `design:tokens`, `design:kit`, `design:capture`,
+- **Put the tooling in the repo, not in your skills folder.** Copy the
+  skill's whole `scripts/` folder into the project's `scripts/design/` (the
+  scripts share `lib.mjs` and `rn.mjs`; copying them one by one is how a
+  fresh install ends up crashing). Add npm scripts: `design:tokens`, `design:kit`, `design:capture`,
   `design:sync`. Commit them, the `claudeDesign` block of
   `design-system.config.json`, and `claude-design.lock.json`.
   **Don't commit the output** (`claude-design/` goes in `.gitignore`): it's
@@ -113,8 +117,23 @@ exporter writes it with those paths).
 opens each route in a real browser and writes its rendered markup as an
 artboard file. The artboard uses the app's own classes, with the system's
 stylesheet and fonts linked. That makes it exact (it *is* the app) and quicker
-than redrawing from a screenshot. Run it three times: as is, then `--dark`,
-then `--width 390`.
+than redrawing from a screenshot. Run it for each variant into the same
+folder, and the runs add up:
+
+```bash
+S=scripts/design
+node $S/audit-render.mjs --capture claude-design/screens                 # desktop
+node $S/audit-render.mjs --capture claude-design/screens --dark
+node $S/audit-render.mjs --capture claude-design/screens --phone         # 390 wide, named "-phone"
+node $S/audit-render.mjs --capture claude-design/screens --signed-out    # the login and sign-up pages
+node $S/audit-render.mjs --capture claude-design/screens --phone --canvas
+```
+
+`--canvas` writes `canvas.boards.json`: every captured board with its
+position and size, one row per screen and its variants side by side. Merge
+its `boards` and `order` into the canvas index instead of copying sizes from
+`capture.json` by hand. `--signed-out` uses `audit.setupSignedOut` if the
+project has one (to dismiss a cookie banner, say), and no sign-in otherwise.
 
 It needs the app to render real screens with sample data, so give the audit a
 `setup` script (Phase 2's render audit uses the same one). The script signs in
@@ -127,12 +146,13 @@ Then:
 - **Images**: upload each one listed in `capture.json` as an asset and point the `src` at the returned URL.
 - **Height**: an artboard can be at most 8000px tall. The capture flags any taller one. Split it into parts (above and below the fold), or lay a long gallery out in columns.
 - **Interactive bits** (open menus, a dialog) need their own capture: open them in `setup` or with a route parameter, then capture again.
+- **Type files**: when publishing the component bundle's `index.d.ts`, send it with `contentType: "text/plain"` (`files: { "project/components/index.d.ts": { from: "…", contentType: "text/plain" } }`). Without it the type isn't recognised and the whole publish is refused.
 
 ## When to update it
 
 | Moment | Update |
 |---|---|
-| **Phase 1, decisions** | Before any code changes, add a row titled "Design system: proposed scale" with three boards:<br>• **the main screen as it is now**;<br>• **the same screen in the proposed system**;<br>• **what changes**: each text size, spacing step and control height, before → after.<br>The owner signs off by looking at their own screen. If the main screen changes little, say which screens change most (often the reading-heavy ones: recipes, plans, articles), and add one of those as a second pair. |
+| **Phase 1, decisions** | Before any code changes, add a row titled "Design system: proposed scale" with three boards:<br>• **the main screen as it is now**;<br>• **the same screen in the proposed system**;<br>• **what changes**: each text size, spacing step and control height, before → after.<br>The owner signs off by looking at their own screen. If the main screen changes little, say which screens change most (often the reading-heavy ones: articles, instructions, long forms), and add one of those as a second pair. |
 | **Phase 3, the kit** | Create the system; fill the Components row. |
 | **Each migration wave** | Re-capture any screen on the canvas that the wave touched (always `Main`), and publish only those artboards. List them in the PR. |
 | **Any token change** | `npm run design:tokens`, then update the system's `tokens.json` (always sent whole) and reinstall it on the canvas. |

@@ -60,6 +60,8 @@ export function* sourceFiles(cfg, { includeTests = false, extensions = cfg.exten
   for (const d of cfg.srcDirs) yield* walk(join(cfg.root, d));
   // Root-level entry files (App.tsx, main.tsx) are screens too.
   for (const name of readdirSync(cfg.root)) {
+    // Root files honour "exempt" like everything else (a root vite.config, a seed script, a generated file).
+    if (cfg.exempt.some(e => name === e || e === name.replace(/\.[^.]+$/, ''))) continue;
     if (cfg.extensions.includes(extname(name)) && !/config|\.d\.ts$/.test(name) && statSync(join(cfg.root, name)).isFile()) {
       if (!seen.has(name)) { seen.add(name); yield { path: join(cfg.root, name), rel: name, text: readFileSync(join(cfg.root, name), 'utf8') }; }
     }

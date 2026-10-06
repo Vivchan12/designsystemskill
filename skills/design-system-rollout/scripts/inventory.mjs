@@ -58,7 +58,13 @@ const paletteRoots = [...new Set([].concat(cfg.tokenMap?.colors ?? []).map(p => 
 const paletteRe = paletteRoots.length ? new RegExp(`\\b(?:${paletteRoots.join('|')})(?:\\.(?:${[].concat(cfg.tokenMap?.colors ?? []).map(p => p.split('.').slice(1).join('.')).filter(Boolean).join('|') || '\\w+'})\\b|\\[)`, 'g') : null;
 let usesCustomFont = false;
 function scanNative(f) {
+  // Lines marked kit-exempt / token-exempt are skipped, as the guards skip them,
+  // so the inventory and the guards give the same number for the same thing.
+  f = { ...f, text: f.text.split('\n').map(l => (/kit-exempt:|token-exempt:/.test(l) ? '' : l)).join('\n') };
   const blocks = styleBlocks(f.text);
+  const touch = touchables(f.text, blocks);
+  // A style used by a control counts once, as a control height; every other height is "other".
+  const controlBlocks = new Set(touch.flatMap(t => t.blocks));
   // Colours anywhere in the file (styles, icon props, constants, rgba), counted once.
   for (const c of colourLiterals(f.text)) bump(N.colour, c.value, f.rel);
   for (const b of blocks) {
@@ -67,15 +73,14 @@ function scanNative(f) {
       if (fam === 'colour') { if (isTokenRef(v)) viaToken.colour++; continue; }
       if (!fam || !N[fam]) { if (k === 'fontFamily') usesCustomFont = true; continue; }
       const lit = literal(v);
-      if (lit !== null) bump(N[fam], String(lit), f.rel);
+      if (lit !== null) { if (fam === 'height' && controlBlocks.has(b)) bump(controlH, String(lit), f.rel); else bump(N[fam], String(lit), f.rel); }
       else if (isTokenRef(v)) viaToken[fam]++;
     }
     if (b.props.fontSize && !b.props.fontFamily) bump(NC['text style with a size but no font family (falls back to the system font)'], `line ${b.line}`, f.rel);
   }
-  for (const t of touchables(f.text, blocks)) {
+  for (const t of touch) {
     bump(NC['hand-built touchable (Pressable / Touchable*)'], t.tag, f.rel);
     if (!t.labelled && !t.hasText) bump(NC['touchable with no label and no text (screen readers say "button")'], `line ${t.line}`, f.rel);
-    if (t.height !== null) bump(controlH, String(t.height), f.rel);
     if (!t.hitSlop && ((t.height !== null && t.height < 44) || (t.width !== null && t.width < 44))) bump(NC['touchable under 44 high or wide, with no hitSlop'], `line ${t.line}`, f.rel);
   }
   if (paletteRe) for (const m of f.text.matchAll(paletteRe)) bump(NC['reads a palette directly (bypasses the theme hook)'], m[0], f.rel);
@@ -98,7 +103,7 @@ for (const f of sourceFiles(cfg)) {
   if (cfg.stack === 'react-native') scanNative(f);
   const lines = f.text.split('\n');
   lines.forEach((line, i) => {
-    if (isComment(line)) return;
+    if (isComment(line) || /kit-exempt:|token-exempt:/.test(line)) return;
     const ctx = lines.slice(i, i + 4).join(' ');
     for (const cls of classStrings(line)) {
       const parts = strip(cls);
@@ -227,9 +232,15 @@ if (cfg.stack === 'react-native') {
   detail('Other heights (pictures, bars, rows)', N.height, 15);
 }
 
-// ── Defined but never used: tokens nobody reaches for ──
-const unused = [];
+// ── Defined but not found by name ──
+// A token whose name is built at runtime (`var(--ds-${tone}-tint)`, `palette[mode]`,
+// `import { type as fonts }`) can't be found by its name. Those are listed apart, as
+// "maybe used", instead of being reported as unused.
+const unused = [], maybe = [];
 const allSrc = [...sourceFiles(cfg, { extensions: [...cfg.extensions, '.css', '.scss'] })].map(f => f.text).join('\n');
+const builtCss = ['dist', 'build', '.next/static', 'web-build'].filter(d => existsSync(join(cfg.root, d))).flatMap(function find(d) {
+  return readdirSync(join(cfg.root, d)).flatMap(n => { const p = `${d}/${n}`; return statSync(join(cfg.root, p)).isDirectory() ? find(p) : /\.css$/.test(n) ? [readFileSync(join(cfg.root, p), 'utf8')] : []; });
+}).join('\n');
 if (cfg.stack === 'react-native' && cfg.tokenModule) {
   try {
     const mod = await loadModule(cfg, cfg.tokenModule);
@@ -240,17 +251,36 @@ if (cfg.stack === 'react-native' && cfg.tokenModule) {
     const flat = flatten(Object.fromEntries(Object.entries(mod).filter(([k]) => k !== 'default')));
     const tokenSrc = readFileSync(join(cfg.root, cfg.tokenModule), 'utf8');
     const rest = allSrc.replace(tokenSrc, '');
+    // Renamed imports: `import { type as fonts }` means fonts.x is type.x.
+    const alias = {};
+    for (const m of rest.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]*['"]/g))
+      for (const part of m[1].split(',')) { const a = part.trim().match(/^(\w+)\s+as\s+(\w+)$/); if (a) (alias[a[1]] ??= new Set()).add(a[2]); }
+    // A root read with brackets (`palette[mode]`) may reach any key under it.
+    const dynamicRoots = new Set(Object.keys(mod).filter(root => [root, ...(alias[root] ?? [])].some(n => new RegExp(`\\b${n}\\??\\.?\\[(?!['"])`).test(rest))));
     for (const path of Object.keys(flat)) {
-      const [last, parent] = path.split('.').reverse();
-      const used = new RegExp(`\\b${parent ?? ''}\\??\\.${last}\\b|\\[['"]${last}['"]\\]`).test(rest);
-      if (!used) unused.push(path);
+      const parts = path.split('.'), last = parts[parts.length - 1], parent = parts[parts.length - 2];
+      const parents = parent === undefined ? [''] : [parent, ...(parts.length === 2 ? alias[parent] ?? [] : [])];
+      const used = parents.some(p => new RegExp(`\\b${p}\\??\\.${last}\\b|\\[['"]${last}['"]\\]`).test(rest));
+      if (used) continue;
+      if (parts.slice(0, -1).some(p => dynamicRoots.has(p)) || dynamicRoots.has(parts[0])) maybe.push(path); else unused.push(path);
     }
   } catch (e) { L.push('', `_Unused tokens not checked: ${e.message}_`); }
 } else if (cfg.stack !== 'react-native') {
   const tw = ['tailwind.config.js', 'tailwind.config.ts', 'tailwind.config.cjs', 'tailwind.config.mjs'].map(f => join(cfg.root, f)).filter(existsSync).map(f => readFileSync(f, 'utf8')).join('\n');
-  for (const name of Object.keys(readTokens(cfg))) if (!new RegExp(`var\\(\\s*${name}\\b`).test(allSrc + tw)) unused.push(name);
+  const tokenCss = cfg.tokenFiles.map(f => readFileSync(join(cfg.root, f), 'utf8')).join('\n');
+  const hay = allSrc + tw + tokenCss + builtCss;
+  // Names built at runtime: var(--ds-${tone}-tint) → any token starting --ds- and ending -tint.
+  const patterns = [...hay.matchAll(/--([\w-]*)\$\{[^}]*\}([\w-]*)/g)].map(m => new RegExp(`^--${m[1]}[\\w-]+${m[2]}$`));
+  for (const name of Object.keys(readTokens(cfg))) {
+    if (new RegExp(`var\\(\\s*${name}\\b`).test(hay)) continue;
+    if (patterns.some(re => re.test(name))) maybe.push(name); else unused.push(name);
+  }
 }
-if (unused.length) L.push('', '## Tokens defined but never used', '', `${unused.length} tokens nobody reaches for. Either the screens hardcode their values (compare with the counts above), or the token can go: ${unused.slice(0, 40).map(u => `\`${u}\``).join(', ')}${unused.length > 40 ? ' …' : ''}`);
+if (unused.length || maybe.length) {
+  L.push('', '## Tokens not found by name', '');
+  if (unused.length) L.push(`${unused.length} token(s) whose name appears nowhere${builtCss ? ' (the built CSS included)' : ''}. Either the screens hardcode their values (compare with the counts above), or the token can go: ${unused.slice(0, 40).map(u => `\`${u}\``).join(', ')}${unused.length > 40 ? ' …' : ''}`, '');
+  if (maybe.length) L.push(`${maybe.length} more may be used through a name built at runtime (\`var(--x-\${tone})\`, \`palette[mode]\`), so they aren't listed as unused: ${maybe.slice(0, 20).map(u => `\`${u}\``).join(', ')}${maybe.length > 20 ? ' …' : ''}`);
+}
 
 // ── Files nothing imports: dead components still on the old look ──
 const imported = new Set();
@@ -278,6 +308,11 @@ function* walkAssets(dir) {
     else if (/\.(png|jpe?g|webp|gif|svg|json|lottie|riv)$/i.test(n) && !(/\.json$/i.test(n) && !/"(?:fr|ip|op|layers)"/.test(readFileSync(join(cfg.root, rel), 'utf8').slice(0, 400)))) yield rel;
   }
 }
+// Images are often referenced from config, not code: Expo's app.json, a PWA manifest,
+// the Vite config, index.html. Those count as uses.
+const configText = ['app.json', 'app.config.js', 'app.config.ts', 'vite.config.js', 'vite.config.ts', 'vite.config.mjs', 'index.html', 'manifest.json', 'public/manifest.json', 'public/manifest.webmanifest', 'site.webmanifest', 'public/site.webmanifest', 'package.json', 'next.config.js', 'capacitor.config.json', 'capacitor.config.ts']
+  .filter(f => existsSync(join(cfg.root, f))).map(f => readFileSync(join(cfg.root, f), 'utf8')).join('\n');
+const jpegSize = (rel) => { try { const b = readFileSync(join(cfg.root, rel)); for (let i = 2; i < b.length - 9;) { if (b[i] !== 0xff) return ''; const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m)) return `${b.readUInt16BE(i + 7)}×${b.readUInt16BE(i + 5)}`; i += 2 + b.readUInt16BE(i + 2); } } catch {} return ''; };
 const pngSize = (rel) => { try { const fd = openSync(join(cfg.root, rel), 'r'); const b = Buffer.alloc(24); readSync(fd, b, 0, 24, 0); closeSync(fd); return b.toString('ascii', 12, 16) === 'IHDR' ? `${b.readUInt32BE(16)}×${b.readUInt32BE(20)}` : ''; } catch { return ''; } };
 for (const d of assetDirs) for (const rel of walkAssets(d)) art.push(rel);
 if (art.length) {
@@ -287,18 +322,22 @@ if (art.length) {
     const key = `${m[1]}/${m[2]}.${m[5]}`;
     const e = groups.get(key) ?? { folder: m[1], name: `${m[2]}.${m[5]}`, densities: new Set(), size: '', bytes: 0, used: false };
     e.densities.add(m[4] ? Number(m[4]) : 1);
-    if (!m[4]) e.size = /png$/i.test(rel) ? pngSize(rel) : '';
-    e.bytes += statSync(join(cfg.root, rel)).size;
+    if (!m[4]) e.size = /png$/i.test(rel) ? pngSize(rel) : /jpe?g$/i.test(rel) ? jpegSize(rel) : '';
+    const bytes = statSync(join(cfg.root, rel)).size;
+    if (!bytes) (e.empty ??= []).push(rel);
+    e.bytes += bytes;
     groups.set(key, e);
   }
-  for (const e of groups.values()) e.used = allSrc.includes(e.name.replace(/\.\w+$/, ''));
+  const hay = allSrc + '\n' + configText;
+  for (const e of groups.values()) e.used = hay.includes(e.name.replace(/\.\w+$/, ''));
   const raster = [...groups.values()].filter(e => /\.(png|jpe?g|webp)$/i.test(e.name));
   const usesDensities = raster.some(e => e.densities.size > 1);
   const missing = usesDensities ? raster.filter(e => !e.densities.has(2) || !e.densities.has(3)) : [];
   const unusedArt = [...groups.values()].filter(e => !e.used);
-  L.push('', '## Art and images', '', `${groups.size} assets in ${assetDirs.join(', ')}${usesDensities ? `; ${missing.length} raster images missing @2x or @3x` : '; no @2x/@3x files, so each image is used at one size (check they are large enough for a 3× phone)'}; ${unusedArt.length} that no source file mentions.`, '', '| Folder | Asset | Densities | Size | KB | Used |', '|---|---|---|---|---|---|');
+  const empty = [...groups.values()].flatMap(e => e.empty ?? []);
+  L.push('', '## Art and images', '', `${groups.size} assets in ${assetDirs.join(', ')}${usesDensities ? `; ${missing.length} raster images missing @2x or @3x` : '; no @2x/@3x files, so each image is used at one size (check they are large enough for a 3× phone)'}; ${unusedArt.length} that no source or config file mentions.`, ...(empty.length ? ['', `**${empty.length} empty file(s)** (0 bytes): they show nothing wherever they're used. ${empty.map(x => `\`${x}\``).join(', ')}`] : []), '', '| Folder | Asset | Densities | Size | KB | Used |', '|---|---|---|---|---|---|');
   for (const e of [...groups.values()].sort((a, b) => a.folder.localeCompare(b.folder)).slice(0, 60))
-    L.push(`| ${e.folder} | ${e.name} | ${[...e.densities].sort().map(x => x + 'x').join(' ')} | ${e.size} | ${Math.round(e.bytes / 1024)} | ${e.used ? '' : 'no'} |`);
+    L.push(`| ${e.folder} | ${e.name} | ${[...e.densities].sort().map(x => x + 'x').join(' ')} | ${e.size} | ${e.empty ? '**0 (empty)**' : Math.round(e.bytes / 1024)} | ${e.used ? 'yes' : 'no'} |`);
   if (groups.size > 60) L.push(`| … | ${groups.size - 60} more | | | | |`);
 }
 
@@ -308,7 +347,7 @@ if (cfg.stack !== 'react-native' && shapeZero && files.length > 5)
   L.splice(6, 0, `> ⚠ **No radii, padding, gaps, buttons or cards were found in ${files.length} files.** That almost always means this scan can't read how the project styles its UI (stack detected: ${cfg.stack}), not that it's clean. Check "stack" in the config before trusting any zero below.`, '');
 
 if (JSON_OUT) {
-  const obj = { stack: cfg.stack, files: files.length, unusedTokens: unused.length, deadFiles: dead.length };
+  const obj = { stack: cfg.stack, files: files.length, unusedTokens: unused.length, maybeUsedTokens: maybe.length, deadFiles: dead.length };
   for (const [k, m] of Object.entries({ ...T, ...C, ...W })) obj[k] = { total: total(m), variants: m.size };
   if (cfg.stack === 'react-native') {
     for (const [k, m] of Object.entries(N)) obj[`native.${k}`] = { total: total(m), variants: m.size, viaToken: viaToken[k] };

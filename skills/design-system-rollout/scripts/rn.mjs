@@ -103,7 +103,7 @@ const TOUCH = /<(Pressable|TouchableOpacity|TouchableHighlight|TouchableWithoutF
  *  height and width when its style says (inline, or a StyleSheet entry it names). */
 export function touchables(src, blocks = styleBlocks(src)) {
   const text = strip(src);
-  const named = Object.fromEntries(blocks.filter(b => b.name).map(b => [b.name, b.props]));
+  const named = Object.fromEntries(blocks.filter(b => b.name).map(b => [b.name, b]));
   const out = [];
   for (const m of text.matchAll(TOUCH)) {
     // The opening tag runs to the first `>` outside braces that isn't part of `=>`.
@@ -118,11 +118,11 @@ export function touchables(src, blocks = styleBlocks(src)) {
     const close = text.indexOf(`</${m[1]}>`, i);
     const body = close > 0 ? text.slice(i, close) : '';
     // Its size: style objects inside the tag, plus any styles.x / s.x it names.
-    const size = {};
+    const size = {}, used = [];
     const styleAt = open.indexOf('style=');
     if (styleAt >= 0) {
-      for (const b of blocks) if (b.start > m.index + styleAt && b.end < m.index + open.length) Object.assign(size, b.props);
-      for (const r of open.slice(styleAt).matchAll(/\b\w+\.(\w+)\b/g)) if (named[r[1]]) Object.assign(size, named[r[1]]);
+      for (const b of blocks) if (b.start > m.index + styleAt && b.end < m.index + open.length) { Object.assign(size, b.props); used.push(b); }
+      for (const r of open.slice(styleAt).matchAll(/\b\w+\.(\w+)\b/g)) if (named[r[1]]) { Object.assign(size, named[r[1]].props); used.push(named[r[1]]); }
     }
     const num = (k) => (size[k] !== undefined && typeof literal(size[k]) === 'number' ? literal(size[k]) : null);
     out.push({
@@ -133,6 +133,7 @@ export function touchables(src, blocks = styleBlocks(src)) {
       hasText: /<Text\b|<[A-Z]\w*Text\b|<(Heading|Label|Eyebrow|Body)\b/.test(body),
       height: num('minHeight') ?? num('height'),
       width: num('minWidth') ?? num('width'),
+      blocks: used,                       // the style objects this control uses
     });
   }
   return out;

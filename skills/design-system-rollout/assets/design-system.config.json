@@ -59,7 +59,7 @@
     "setup": "scripts/audit-setup.mjs",
     "captureRoot": "#root",
     "screens": "scripts/audit-screens.mjs",
-    "minTarget": 44,
+    "minTarget": { "phone": 44, "desktop": 24 },
     "scope": ".app-shell",
     "headerSelector": "header h1"
   }

@@ -117,7 +117,7 @@ Show the decisions on the product itself: on the Claude Design canvas (create it
    - `check:writing`: `check-writing.mjs`
    - `audit:render`: `audit-render.mjs`
 
-   They import `lib.mjs`, so copy that too. Run `check-kit.mjs --init` once to record today's counts as the ceiling.
+   **Copy the whole `scripts/` folder**, not single files: the guards share `lib.mjs` and `rn.mjs`, and a guard copied without them crashes on a fresh install. Leave out the `*.test.mjs` files if you like. Run `check-kit.mjs --init` once to record today's counts as the ceiling.
 3. **CI.** Add `check:tokens`, `check:kit` and `check:writing` to the existing CI job (`assets/ci-snippet.yml`). Use `check:tokens --list` and `check:writing --list` (report only) until their waves land, then switch them to failing mode.
 4. **Prove each guard fails.** Plant one violation per guard, watch it go red, then remove it. A guard that finds no inputs and passes is worse than none (`pitfalls.md` §1).
 
@@ -188,13 +188,14 @@ For each wave:
 | File | Read when |
 |---|---|
 | `scripts/inventory.mjs` | Phase 0 |
-| `scripts/check-kit.mjs`, `check-tokens.mjs`, `check-writing.mjs`, `audit-render.mjs`, `lib.mjs` | Phase 2: copy into the project |
+| `scripts/` (the whole folder: the guards share `lib.mjs` and `rn.mjs`) | Phase 2: copy into the project |
 | `references/decisions.md` | Phase 1 |
 | `references/kit.md` | Phase 3, and in every migration brief |
 | `references/codemods.md` | Before writing any codemod (Phase 4) |
 | `references/claude-design.md` | The design-file-only route, and Phases 1, 3, 4 and 6 of a full rollout |
 | `scripts/export-tokens.mjs` (+ `.test.mjs`), `bundle-kit.mjs`, `check-design-sync.mjs`, `audit-render.mjs --capture` | Copy into the project's `scripts/design/`: tokens, component previews, screen capture, staleness check |
 | `scripts/status.mjs` | The start and end of every session |
+| `scripts/*.test.mjs` (`web`, `native`, `export-tokens`) | After changing any script: each test fails on the bug it describes |
 | `references/react-native.md` | Before Phase 0 on a React Native or Expo app |
 | `references/pitfalls.md` | Before Phase 2, and whenever something "looks done" but you haven't rendered it |
 | `assets/design-system.config.json`, `assets/ci-snippet.yml` | Phase 0 and Phase 2 |

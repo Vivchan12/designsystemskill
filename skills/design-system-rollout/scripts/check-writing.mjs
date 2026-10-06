@@ -17,6 +17,8 @@
  *   - "AI" as a label prefix ("Generate AI Summary")
  *   - a second name for a tool ("Order Log" when it is called "Order History")
  */
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { loadConfig, sourceFiles, isComment, isKit } from './lib.mjs';
 
 const cfg = loadConfig();
@@ -114,7 +116,8 @@ export function findings(line, prev = '') {
   return out;
 }
 
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+// Compare paths, not URLs: a URL escapes spaces (%20), so a project in "My Apps/" never matched and the check silently checked nothing.
+const isMain = !!process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 if (isMain) {
   const list = process.argv.includes('--list');
   const all = [];

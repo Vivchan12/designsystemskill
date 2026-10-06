@@ -59,7 +59,7 @@ const metrics = NATIVE ? {
   'Hand-built touchables': n('native.hand-built touchable (Pressable / Touchable*)'),
   'Touchables with no label': n('native.touchable with no label and no text (screen readers say "button")'),
   'Raw <Text> outside the kit': n('native.raw <Text> outside the kit'),
-  'Tokens nobody uses': inv.unusedTokens ?? 0,
+  'Tokens not found by name': inv.unusedTokens ?? 0,
   'Files nothing imports': inv.deadFiles ?? 0,
   'Title Case labels': n('titleCase'),
 } : {
@@ -71,7 +71,7 @@ const metrics = NATIVE ? {
   'Raw form fields': n('raw form field (<input>/<select>/<textarea>)'),
   'Hand-built dialogs': n('overlay (fixed inset-0 / createPortal)'),
   'Classes that cannot exist': n('class that cannot exist (e.g. gray-150)'),
-  'Tokens nobody uses': inv.unusedTokens ?? 0,
+  'Tokens not found by name': inv.unusedTokens ?? 0,
   'Files nothing imports': inv.deadFiles ?? 0,
   'Title Case labels': n('titleCase'),
 };
@@ -85,6 +85,8 @@ const WAVES = NATIVE
 const decisions = read('docs/design-decisions.md');
 const tokensExist = NATIVE ? !!cfg.tokenModule && has(cfg.tokenModule) : cfg.tokenFiles.length > 0;
 const guards = ['check:tokens', 'check:kit', 'check:writing'].filter(s => pkgScripts[s]);
+// CI runs the guard whether the workflow says `npm run check:kit` or calls the script directly.
+const inCI = /check:kit|check-kit(\.mjs)?\b/.test(ci);
 const kitFiles = has(cfg.kitDir) ? readdirSync(join(cfg.root, cfg.kitDir)).filter(f => /\.(tsx|jsx|vue|svelte)$/.test(f) && !/\.test\./.test(f)) : [];
 const designLinks = (read('DESIGN-SYSTEM.md') + docs).match(/claude\.ai\/(?:code\/)?artifact\/\w+/g) ?? [];
 
@@ -93,7 +95,7 @@ const phases = [
   ['0. Sample data', !!cfg.audit?.setup && has(cfg.audit.setup), cfg.audit?.setup ? (has(cfg.audit.setup) ? cfg.audit.setup : `${cfg.audit.setup} is missing`) : 'no audit.setup script', 'Find or write scripts/audit-setup.mjs: a test user with believable content in every main screen.'],
   ['1. Decisions signed off', /signed off/i.test(decisions), decisions ? (/signed off/i.test(decisions) ? 'docs/design-decisions.md, signed off' : 'docs/design-decisions.md, not signed off yet') : 'no docs/design-decisions.md', 'Fill references/decisions.md with proposed answers from the counts, get the owner\'s sign-off, save it as docs/design-decisions.md with "Signed off: <date>".'],
   ['2. Tokens', tokensExist, tokensExist ? (NATIVE ? cfg.tokenModule : cfg.tokenFiles.join(', ')) : (NATIVE ? 'no tokenModule' : 'no token CSS found'), 'Write the decided values as tokens.'],
-  ['2. Guards', guards.length === 3 && /check:kit/.test(ci), `${guards.length}/3 npm scripts${/check:kit/.test(ci) ? ', in CI' : ', not in CI'}`, 'Copy the guards into scripts/, add check:tokens, check:kit and check:writing to package.json and CI, run check-kit --init, and prove each guard fails on a planted violation.'],
+  ['2. Guards', guards.length === 3 && inCI, `${guards.length}/3 npm scripts${inCI ? ', in CI' : ', not in CI'}`, 'Copy the guards into scripts/, add check:tokens, check:kit and check:writing to package.json and CI, run check-kit --init, and prove each guard fails on a planted violation.'],
   ['3. Kit', kitFiles.length >= 5 && has('DESIGN-SYSTEM.md'), `${kitFiles.length} components${has('DESIGN-SYSTEM.md') ? ', DESIGN-SYSTEM.md' : ', no DESIGN-SYSTEM.md'}`, 'Build the kit from the decisions sheet (references/kit.md), with a gallery and DESIGN-SYSTEM.md.'],
   ...WAVES.map(([name, keys], i) => [`4. Wave ${i + 1}: ${name}`, kit !== null && sum(...keys) === 0, kit ? `${sum(...keys)} left (${keys.map(x => `${x} ${k[x] ?? 0}`).join(', ')})` : 'no counts', `Migrate the ${name.toLowerCase()} wave: codemods first (references/codemods.md), then by hand in parallel, verify by rendering, check-kit --update-baseline, one PR.`]),
   ['5. Writing', has('WRITING.md') && !!pkgScripts['check:writing'], has('WRITING.md') ? 'WRITING.md' : 'no WRITING.md', 'Write WRITING.md from the template, fix Title Case by hand-checked conversion, switch check:writing to failing.'],

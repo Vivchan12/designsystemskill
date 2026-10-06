@@ -126,7 +126,16 @@ const noteFor = (name) => cd.notes[name] ?? cd.notes[name.replace(/^--/, '')]
 const COLOR = /^(#[0-9a-f]{3,8}|(rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\))$/i;
 const toPx = (v) => { const m = String(v).match(/^(-?[\d.]+)rem$/); return m ? `${+(m[1] * 16).toFixed(2)}px` : v; };
 const tok = (n) => n.replace(/^--/, '');
-const startsWithAny = (key, name) => [].concat(P[key] ?? []).find(x => x && name.startsWith(x));
+// A family is found by its configured prefix, else by its name, so a project that
+// never set "prefixes" still gets its radii, spacing and shadows exported.
+const LENGTH = /^-?[\d.]+(px|rem|em)?$|^0$/;
+const GUESS = {
+  radius: (n, v) => /radius|rounded/.test(n) && LENGTH.test(String(v)),
+  spacing: (n, v) => /(^|-)(space|spacing|gap|gutter|inset)(-|$)/.test(n) && LENGTH.test(String(v)),
+  shadow: (n, v) => /shadow|elevation/.test(n) && /\d/.test(String(v)) && !/^#|^rgba?\(/.test(String(v).trim()),
+  font: (n, v) => /font-?family|(^|-)font-(sans|serif|mono|display|body|heading|brand)$/.test(n) && /[a-z]/i.test(String(v)),
+};
+const startsWithAny = (key, name, value) => [].concat(P[key] ?? []).find(x => x && name.startsWith(x)) ?? (value !== undefined && GUESS[key]?.(name.replace(/^--/, ''), value) ? '--' : undefined);
 let ref = '';
 try { ref = execSync('git rev-parse --abbrev-ref HEAD', { cwd: cfg.root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() + '@' + execSync('git rev-parse --short HEAD', { cwd: cfg.root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch {}
 
@@ -166,11 +175,12 @@ for (const name of names) {
     if (noteFor(name)) style.usage = noteFor(name);
     if (!lh || !fw) problems.push(`type style "${style.name}" has no ${[!lh && 'line height', !fw && 'weight'].filter(Boolean).join(' or ')}: add it under claudeDesign.textStyles`);
     T.type.groups[0].styles.push(style);
-  } else if ((k = startsWithAny('font', name))) {
-    T.type.families[tok(name).slice(tok(k).length)] = first;
-  } else if (startsWithAny('radius', name)) { T.radius.tokens.push(one(toPx(first))); if (!sameEverywhere()) problems.push(`${name} differs by theme; only the first theme's value is exported`); }
-  else if (startsWithAny('spacing', name)) { T.spacing.tokens.push(one(toPx(first))); if (!sameEverywhere()) problems.push(`${name} differs by theme; only the first theme's value is exported`); }
-  else if (startsWithAny('shadow', name)) {
+  } else if ((k = startsWithAny('font', name, first))) {
+    const key = k === '--' ? tok(name).replace(/^.*?font-?(family-?)?/, '') || 'sans' : tok(name).slice(tok(k).length);
+    T.type.families[key] = first;
+  } else if (startsWithAny('radius', name, first)) { T.radius.tokens.push(one(toPx(first))); if (!sameEverywhere()) problems.push(`${name} differs by theme; only the first theme's value is exported`); }
+  else if (startsWithAny('spacing', name, first)) { T.spacing.tokens.push(one(toPx(first))); if (!sameEverywhere()) problems.push(`${name} differs by theme; only the first theme's value is exported`); }
+  else if (startsWithAny('shadow', name, first)) {
     // Per theme when the themes differ, so dark shadows aren't dropped.
     const v = perTheme(name, s => !/var\(|url\(/.test(s));
     T.shadow.tokens.push(one(new Set(Object.values(v)).size > 1 ? v : first));
@@ -209,6 +219,9 @@ if (NATIVE) {
 }
 const fam = Object.keys(T.type.families);
 if (fam.length && !T.type.families.sans) T.type.groups[0].family = fam[0];
+// Never point the type group at a family that isn't defined: with no font tokens,
+// say so and fall back to the system stack rather than a dangling "sans".
+if (!fam.length && T.type.groups[0].styles.length) { T.type.families.sans = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; problems.push('no font-family tokens found: the type styles use the system font stack. Add a font token (--font-sans) or claudeDesign.prefixes.font'); }
 // An alias of a token that didn't make the export drops silently in Claude Design: resolve it instead.
 const have = new Set(T.color.tokens.map(x => x.name));
 for (const t of T.color.tokens) for (const th of Object.keys(t.value))

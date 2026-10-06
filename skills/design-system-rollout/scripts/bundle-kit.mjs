@@ -31,10 +31,12 @@ const esbuild = (await import(pathToFileURL(esbuildPath).href)).default ?? (awai
 
 // react, react-dom and their sub-paths → the page's React 18 globals.
 const SHIMS = {
-  'react': 'const R = window.React; export default R; export const { Children, Component, Fragment, PureComponent, StrictMode, Suspense, cloneElement, createContext, createElement, createRef, forwardRef, isValidElement, lazy, memo, startTransition, useCallback, useContext, useDebugValue, useDeferredValue, useEffect, useId, useImperativeHandle, useInsertionEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore, useTransition } = R;',
+  // CommonJS pass-through, so EVERY export reaches the kit: libraries read things a
+  // fixed list leaves out (react-aria, used by Headless UI, reads React.version).
+  'react': 'module.exports = window.React;',
   'react/jsx-runtime': 'const R = window.React; const j = (t, p, k) => R.createElement(t, k === undefined ? p : { ...p, key: k }); export const jsx = j, jsxs = j, jsxDEV = j, Fragment = R.Fragment;',
-  'react-dom': 'const D = window.ReactDOM; export default D; export const { createPortal, flushSync } = D;',
-  'react-dom/client': 'const D = window.ReactDOM; export default D; export const { createRoot, hydrateRoot } = D;',
+  'react-dom': 'module.exports = window.ReactDOM;',
+  'react-dom/client': 'module.exports = window.ReactDOM;',
 };
 SHIMS['react/jsx-dev-runtime'] = SHIMS['react/jsx-runtime'];
 const shimPlugin = {

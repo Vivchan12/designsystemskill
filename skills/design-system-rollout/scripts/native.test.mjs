@@ -64,7 +64,7 @@ check('it counts a value used through a token separately', /\| Gaps \| 0 \| 0 \|
 check('it prints no class-name tables (zeros that mean "couldn\'t look")', !/Font size classes \(text-xs/.test(inv.out));
 check('it finds a touchable with no label and no text', /no label and no text[^|]*\| 1 \|/.test(inv.out), inv.out);
 check('it finds a text style with a size but no font family', /no font family[^|]*\| 2 \|/.test(inv.out), inv.out);
-check('it lists tokens defined but never used', /never used[\s\S]*`space\.md`/.test(inv.out), inv.out);
+check('it lists tokens not found by name', /not found by name[\s\S]*`space\.md`/.test(inv.out), inv.out);
 check('it lists files nothing imports', /nothing imports[\s\S]*OldCard\.tsx/.test(inv.out), inv.out);
 check('the tokens file is not counted as a screen', !/tokens\.js/.test(inv.out.split('## At a glance')[1]?.split('## Tokens defined')[0] ?? ''), inv.out);
 check('Title Case honours proper names under "writing"', !/Harbour Walk|Follow Pip/.test(inv.out.split('## Words')[1] ?? '') && /Start Check In/.test(inv.out));
@@ -143,6 +143,7 @@ put2('assets/art/scene.png', Buffer.from('89504e470d0a1a0a0000000d49484452000003
 put2('assets/art/scene@2x.png', 'x');
 put2('assets/art/hill.png', 'x');
 put2('assets/icons/unused-leaf.png', 'x');
+put2('src/screens/Fonts.tsx', "import { type as fonts, palette } from '../theme/tokens';\nexport const f = fonts.serif; export const g = (mode) => palette[mode].ink;\n");
 put2('src/screens/Art.tsx', "export const art = [require('../../assets/art/scene.png'), require('../../assets/art/hill.png')];\n");
 put2('design-system.config.json', JSON.stringify({
   srcDirs: ['src'], kitDir: 'src/components/ui', tokenModule: 'src/theme/tokens.ts', entries: ['src/navigation/Root.tsx'],
@@ -157,17 +158,22 @@ check('expo: shadowOffset is not a height', !/\| `2` \|/.test(inv2.out.split('##
 check('expo: control heights come from the touchables, apart from pictures and bars', /Control heights \(things you tap\) \| 2 \| 2/.test(inv2.out), inv2.out);
 check('expo: a touchable under 44 without hitSlop is found', /under 44 high or wide, with no hitSlop \| 1 \|/.test(inv2.out), inv2.out);
 check('expo: colours in icons, constants and rgba all count, once', /Colours \(hex, rgba; styles, icons, constants\) \| 3 \| 3 \|/.test(inv2.out), inv2.out);
-check('expo: direct palette reads are counted', /reads a palette directly[^|]*\| 1 \|/.test(inv2.out), inv2.out);
+check('expo: direct palette reads are counted', /reads a palette directly[^|]*\| 2 \|/.test(inv2.out), inv2.out);   // palette.day.ground and palette[mode]
 check('expo: text scaling turned off is counted', /turns text scaling off[^|]*\| 1 \|/.test(inv2.out) && /no maximum set anywhere/.test(inv2.out), inv2.out);
 check('expo: a screen handling safe areas itself is counted', /handles safe areas itself[^|]*\| 1 \|/.test(inv2.out), inv2.out);
 check('expo: the React Navigation entry file is not "dead"', !/nothing imports[\s\S]*Root\.tsx/.test(inv2.out), inv2.out);
+const other = inv2.out.split('## Other heights')[1]?.split('##')[0] ?? '';
+check('expo: a control\'s height is counted once, as a control, not again under other heights', !/\| `32` \|/.test(other) && !/\| `52` \|/.test(other) && /\| `44` \| 1 \|/.test(other) && /\| `4` \| 1 \|/.test(other), other);
+const notFound = inv2.out.split('## Tokens not found by name')[1]?.split('## ')[0] ?? '';
+check('expo: a token read through a renamed import (type as fonts) is not "unused"', !/`type\.serif`/.test(notFound), notFound);
+check('expo: tokens read as palette[mode] are "maybe used", not unused', /may be used through a name built at runtime[^\n]*palette\.night\.ink/.test(notFound) && !/appears nowhere[^\n]*palette\.night/.test(notFound), notFound);
 check('expo: art is listed, with missing densities and unused files', /## Art and images/.test(inv2.out) && /4 assets|3 assets/.test(inv2.out) && /1000×750/.test(inv2.out) && /unused-leaf\.png[^\n]*\| no \|/.test(inv2.out), inv2.out.split('## Art')[1]);
 const tok2 = run2('check-tokens.mjs', '--list');
 check('expo: check-tokens loads the same tokens file (no esbuild) and finds a value equal to a token', /paddingHorizontal: 16 is space\.md/.test(tok2.out) && !/not found|✗/.test(tok2.out), tok2.out);
 const ex2 = run2('export-tokens.mjs', '--check');
 check('expo: the export reads a size scale and font names', /type styles \| 2 \|/.test(ex2.out) && /font families \/ files \| 2 \//.test(ex2.out), ex2.out);
 const kit2 = run2('check-kit.mjs', '--json');
-check('expo: the ratchet counts small targets and direct palette reads', /"smallTarget":1/.test(kit2.out) && /"directPalette":1/.test(kit2.out), kit2.out);
+check('expo: the ratchet counts small targets and direct palette reads', /"smallTarget":1/.test(kit2.out) && /"directPalette":2/.test(kit2.out), kit2.out);
 
 console.log(failed ? `\n${failed} failed` : '\nall passed');
 process.exit(failed ? 1 : 0);

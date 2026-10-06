@@ -1,3 +1,12 @@
+# Design skills
+
+Two Claude skills, meant to be used in this order:
+
+| Skill | What it does |
+|---|---|
+| [design-system-rollout](#design-system-rollout) | Takes an app from "every screen styled by hand" to one kit, with CI guards that stop it drifting back. |
+| [accessible-text-scaling](#accessible-text-scaling) | Makes the app follow the text size people set on their phone or browser, within a readable range, and keeps layouts whole at large sizes. Needs the named text roles the first skill creates. |
+
 # design-system-rollout
 
 A Claude skill that takes an app from "every screen styled by hand" to "every
@@ -48,12 +57,14 @@ rm -rf ~/.claude/skills/design-system-rollout
 cp -r /tmp/designsystemskill/skills/design-system-rollout ~/.claude/skills/
 ```
 
-This replaces only this one skill folder. If `/tmp/designsystemskill` already
+For the text-scaling skill, do the same with `accessible-text-scaling`.
+
+This replaces only that one skill folder. If `/tmp/designsystemskill` already
 exists, `git -C /tmp/designsystemskill pull` first, or the copy will be stale.
 For one project only, copy it into `<project>/.claude/skills/` instead.
 
-**In the Claude apps**: download `dist/design-system-rollout.skill` and open
-it in a conversation. The file card has a **Save skill** button.
+**In the Claude apps**: download `dist/design-system-rollout.skill` (or
+`dist/accessible-text-scaling.skill`) and open it in a conversation. The file card has a **Save skill** button.
 
 ## Use
 
@@ -125,8 +136,14 @@ skills/design-system-rollout/
   scripts/       status, inventory, guards, render audit, token export, kit bundle, design sync, tests
   references/    decisions sheet, kit API, codemods, pitfalls, Claude Design, React Native
   assets/        config template, CI snippet, DESIGN-SYSTEM and WRITING templates
+skills/accessible-text-scaling/
+  SKILL.md       the process: audit, agree the scale, apply it once, fix layouts, keep it
+  scripts/       scale table and code generator, audit, tests
+  references/    the policy, each platform, layouts at large sizes, testing
+  assets/        config template, large-text switch (web), review tool (web, React Native)
 dist/
   design-system-rollout.skill
+  accessible-text-scaling.skill
 ```
 
 ## How it was tested
@@ -138,3 +155,46 @@ dist/
 
 Not yet done: a full rollout run start to finish by the skill, and the build
 phases on React Native.
+
+# accessible-text-scaling
+
+People set their text size on their phone or browser: bigger because they
+can't read small text, smaller to fit more on screen. This skill makes an app
+follow that setting **within a range per text role**:
+
+| | Default |
+|---|---|
+| Smallest it follows | 80% of normal, with a floor: no text under 12pt, reading text under 14pt |
+| Largest it follows | 200% for reading text (WCAG 1.4.4); large headings stop sooner |
+| Icons | grow with the text up to 1.5×, never shrink |
+| Hierarchy | a bigger role never renders smaller than a lesser one, at any setting |
+
+Five phases: audit how the app treats the setting today, agree the scale (one
+table the owner signs off), apply it in one place (generated code, not
+hand-copied), fix the layouts that break at large sizes, and keep it with a CI
+check. React Native and Expo, the web, iOS, Android and Flutter.
+
+**Scripts** (plain Node 18+, no dependencies; they read
+`text-scale.config.json` in your project root, template in `assets/`):
+
+```bash
+S=~/.claude/skills/accessible-text-scaling/scripts
+node $S/text-scale-audit.mjs                 # where the setting is blocked, or breaks the layout
+node $S/text-scale-audit.mjs --strict        # CI: fail while anything blocks the setting
+node $S/scale-table.mjs                      # the scale: every phone setting × every text role
+node $S/scale-table.mjs --emit ts            # React Native: scaledText(), scaledIcon()
+node $S/scale-table.mjs --emit css --prefix ds   # web: --ds-text-*, --ds-icon-* (then @import it)
+node $S/text-scale.test.mjs [config]         # tests; from a project copy, checks its own policy
+```
+
+**Assets:**
+
+- `large-text.js` (web, part of the app): sets `data-text-scale="large"` at 150% and above, for a `large-text:` Tailwind variant.
+- `text-scale-preview.js` and `TextScalePreview.tsx`: a **review tool**, development only. A panel of every iPhone and Android text size that re-renders the app at each one, and on the web marks text that doesn't grow, icons that don't grow, text cut off, shapes stretched, and anything that pushes the page sideways. The audit lists where it's loaded, and `--strict` fails if it would ship. Delete it when the review is done.
+
+**How it was tested.** On one real web app, through a full pass: the review
+tool caught icons left at a fixed size that three guards and the build missed.
+That run's nine improvements (the CSS import check, spacing at large sizes,
+fewer false marks, the large-text switch, the sideways-scroll check and
+others) are in this version, each with a test that failed before the fix.
+Not yet run end to end on a React Native app.

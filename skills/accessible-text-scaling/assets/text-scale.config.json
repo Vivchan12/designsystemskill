@@ -1,0 +1,25 @@
+{
+  "_about": "The accessibility text scale. 'size' is each role's size at the phone's default setting, in pt (iPhone) / sp (Android) / px (web). The policy says how far the phone's text-size setting is followed.",
+
+  "policy": {
+    "minScale": 0.8,
+    "maxScale": 2.0,
+    "minSize": 12
+  },
+
+  "roles": {
+    "caption":  { "size": 12, "lineHeight": 16 },
+    "label":    { "size": 13, "lineHeight": 18 },
+    "body":     { "size": 15, "lineHeight": 22, "reading": true, "minSize": 14 },
+    "lead":     { "size": 17, "lineHeight": 24, "reading": true, "minSize": 15 },
+    "title":    { "size": 20, "lineHeight": 26, "maxScale": 1.75 },
+    "heading":  { "size": 28, "lineHeight": 34, "maxScale": 1.35 },
+    "display":  { "size": 36, "lineHeight": 42, "maxScale": 1.25 }
+  },
+
+  "icons": { "sizes": { "sm": 16, "md": 20, "lg": 24 }, "maxScale": 1.5 },
+
+  "srcDirs": ["src", "app", "components"],
+  "kitDir": "src/components/ui",
+  "exempt": ["node_modules", "dist", "build"]
+}

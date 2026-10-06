@@ -31,7 +31,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { loadConfig, readTokens } from './lib.mjs';
+import { loadConfig, readTokens, loadModule, flatten, getPath } from './lib.mjs';
 
 const cfg = loadConfig();
 const A = cfg.audit ?? {};
@@ -46,7 +46,12 @@ try { ({ chromium } = req('playwright')); } catch { try { ({ chromium } = req('p
   console.error('✗ Install playwright-core in the project: npm i -D playwright-core'); process.exit(1); } }
 
 const toPx = (v) => { const m = String(v).match(/([\d.]+)(px|rem)?/); return m ? +(m[2] === 'rem' ? m[1] * 16 : m[1]) : NaN; };
-const allowed = A.allowedSizes ?? Object.entries(readTokens(cfg)).filter(([k]) => k.startsWith(cfg.typeTokenPrefix)).map(([, v]) => toPx(v)).filter(n => !isNaN(n));
+let allowed = A.allowedSizes ?? Object.entries(readTokens(cfg)).filter(([k]) => k.startsWith(cfg.typeTokenPrefix)).map(([, v]) => toPx(v)).filter(n => !isNaN(n));
+if (!A.allowedSizes && cfg.stack === 'react-native' && cfg.tokenModule) {
+  // React Native: the type scale is the fontSize of each style in the tokens object.
+  const mod = await loadModule(cfg, cfg.tokenModule);
+  allowed = [...new Set(Object.entries(flatten(getPath(mod, cfg.tokenMap?.type ?? 'type') ?? {})).filter(([k, v]) => /fontSize$/.test(k) && typeof v === 'number').map(([, v]) => v))];
+}
 if (!allowed.length) { console.error(`✗ No type scale: set audit.allowedSizes, or declare ${cfg.typeTokenPrefix}* tokens.`); process.exit(1); }
 
 const setup = A.setup ? (await import(pathToFileURL(resolve(cfg.root, A.setup)).href)).default : null;
@@ -59,11 +64,21 @@ if (SHOTS) mkdirSync(join(cfg.root, 'audit-shots'), { recursive: true });
 if (CAPTURE) mkdirSync(CAPTURE, { recursive: true });
 const captured = [];
 
-let offScale = 0, contrast = 0, edges = 0;
-for (const route of cfg.routes) {
-  await page.goto(cfg.baseUrl + route, { waitUntil: 'networkidle' }).catch(() => {});
+// Screens: web routes, or (for a one-URL app such as a React Native / Expo web
+// build) a module that taps its way to each screen:
+//   export default [{ name: 'Today', go: async (page) => { … } }, …]
+const screens = A.screens
+  ? (await import(pathToFileURL(resolve(cfg.root, A.screens)).href)).default
+  : cfg.routes.map(route => ({ name: route, go: (p) => p.goto(cfg.baseUrl + route, { waitUntil: 'networkidle' }).catch(() => {}) }));
+if (A.screens) await page.goto(cfg.baseUrl, { waitUntil: 'networkidle' }).catch(() => {});
+// Anything tappable smaller than this is hard to hit: 44 on phones, 24 (WCAG 2.2) on the web.
+const MIN_TARGET = A.minTarget ?? (cfg.stack === 'react-native' || WIDTH < 600 ? 44 : 24);
+
+let offScale = 0, contrast = 0, edges = 0, small = 0;
+for (const { name: route, go } of screens) {
+  await go(page);
   await page.waitForTimeout(400);
-  const r = await page.evaluate(({ allowed, scope, headerSelector }) => {
+  const r = await page.evaluate(({ allowed, scope, headerSelector, minTarget }) => {
     const root = (scope && document.querySelector(scope)) || document.body;
     const parse = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const [r, g, b, a = 1] = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r, g, b, a }; };
     const lum = ({ r, g, b }) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
@@ -100,16 +115,22 @@ for (const route of cfg.routes) {
         if (b.width > 400 && el.parentElement && Math.abs(b.left - h.left) > 2 && Math.abs(b.left - h.left) < 60) misaligned.push(`${Math.round(b.left - h.left)}px ${label(el)}`);
       }
     }
-    return { off: [...new Set(off)], low: [...new Set(low)], misaligned };
-  }, { allowed, scope: A.scope, headerSelector: A.headerSelector });
+    const tiny = [];
+    for (const el of root.querySelectorAll('button, a[href], [role="button"], [role="link"], [role="switch"], [role="checkbox"], input, select, textarea')) {
+      const b = el.getBoundingClientRect();
+      if (b.width && b.height && (b.width < minTarget || b.height < minTarget) && getComputedStyle(el).visibility !== 'hidden') tiny.push(`${Math.round(b.width)}×${Math.round(b.height)} ${label(el)}${el.getAttribute('aria-label') ? '' : el.textContent.trim() ? '' : '  (and no label)'}`);
+    }
+    return { off: [...new Set(off)], low: [...new Set(low)], misaligned, tiny: [...new Set(tiny)] };
+  }, { allowed, scope: A.scope, headerSelector: A.headerSelector, minTarget: MIN_TARGET });
   if (SHOTS) await page.screenshot({ path: join(cfg.root, 'audit-shots', `${route.replace(/\W+/g, '-').replace(/^-|-$/g, '') || 'home'}-${WIDTH}${DARK ? '-dark' : ''}.png`), fullPage: true });
   if (CAPTURE) captured.push(await capture(route));
-  offScale += r.off.length; contrast += r.low.length; edges += r.misaligned.length;
-  if (r.off.length || r.low.length || r.misaligned.length) {
+  offScale += r.off.length; contrast += r.low.length; edges += r.misaligned.length; small += r.tiny.length;
+  if (r.off.length || r.low.length || r.misaligned.length || r.tiny.length) {
     console.log(`\n${route}`);
     r.off.slice(0, 15).forEach(x => console.log(`  off-scale  ${x}`));
     r.low.slice(0, 10).forEach(x => console.log(`  contrast   ${x}`));
     r.misaligned.slice(0, 5).forEach(x => console.log(`  edge       ${x}`));
+    r.tiny.slice(0, 8).forEach(x => console.log(`  target     ${x}`));
   }
 }
 await browser.close();
@@ -168,5 +189,5 @@ return {};
 `);
   return { route, file, width: WIDTH, height, dark: DARK, images, empty: text < 20 };
 }
-console.log(`\n${cfg.routes.length} routes at ${WIDTH}px${DARK ? ', dark' : ''}: ${offScale} off-scale, ${contrast} contrast, ${edges} edge. Allowed sizes: ${allowed.join(', ')}px.`);
+console.log(`\n${screens.length} screens at ${WIDTH}px${DARK ? ', dark' : ''}: ${offScale} off-scale, ${contrast} contrast, ${edges} edge, ${small} under ${MIN_TARGET}px to tap. Allowed sizes: ${allowed.join(', ')}px.`);
 if (offScale || edges || (STRICT && contrast)) process.exit(1);

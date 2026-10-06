@@ -5,7 +5,7 @@ took days by hand.
 
 | Skill | What it does |
 |---|---|
-| [`design-system-rollout`](skills/design-system-rollout/) | Takes an app from "every screen styled by hand" to "every screen built from one kit, and CI stops it drifting back". |
+| [`design-system-rollout`](skills/design-system-rollout/) | Takes an app from "every screen styled by hand" to "every screen built from one kit, and CI stops it drifting back". Web (Tailwind or CSS) and React Native / Expo. |
 | [`guided-product-flows`](skills/guided-product-flows/) | For products made of several screens or modules that build on each other. Gives each one a step-by-step way in instead of a blank page, connects the data between them, and removes anything on screen that claims more than the data behind it. |
 
 ## Install
@@ -83,6 +83,7 @@ node $S/export-tokens.test.mjs                # the cascade rules the export mus
 node $S/bundle-kit.mjs                        # the kit as one script + stylesheet, for live component previews
 node $S/audit-render.mjs --capture <dir>      # each screen's real markup as a Claude Design artboard
 node $S/check-design-sync.mjs                 # which artboards are behind the code
+node $S/native.test.mjs                       # the React Native path
 ```
 
 ## guided-product-flows

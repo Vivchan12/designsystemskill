@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadConfig, sourceFiles, classStrings, isComment, isKit } from './lib.mjs';
+import { styleBlocks, literal, FAMILY, touchables } from './rn.mjs';
 
 const cfg = loadConfig();
 const args = process.argv.slice(2);
@@ -49,15 +50,31 @@ const DEFAULT_METRICS = {
   inlineStyle: [(l) => (/style=\{\{[^}]*(fontSize|fontWeight|color|background)/.test(l) ? 1 : 0), 'a class or a component prop (inline styles cannot be themed)'],
 };
 
-const METRICS = Object.fromEntries(Object.entries(DEFAULT_METRICS).filter(([k]) => !(cfg.kit?.disable ?? []).includes(k)));
+// React Native has no class names: count literal style values and hand-built
+// touchables instead. These run per FILE (style objects span lines).
+const NATIVE_METRICS = {
+  rawFontSize:  [(t) => styleBlocks(t).filter(b => b.props.fontSize && literal(b.props.fontSize) !== null).length, 'a text style from the kit (<Text variant>)'],
+  rawSpacing:   [(t) => styleBlocks(t).reduce((n, b) => n + Object.entries(b.props).filter(([k, v]) => ['padding', 'margin', 'gap'].includes(FAMILY(k)) && typeof literal(v) === 'number' && literal(v) !== 0).length, 0), 'a space token'],
+  rawRadius:    [(t) => styleBlocks(t).reduce((n, b) => n + Object.entries(b.props).filter(([k, v]) => FAMILY(k) === 'radius' && typeof literal(v) === 'number').length, 0), 'a radius token'],
+  rawColour:    [(t) => styleBlocks(t).reduce((n, b) => n + Object.entries(b.props).filter(([k, v]) => FAMILY(k) === 'colour' && typeof literal(v) === 'string').length, 0), 'a colour from the theme hook'],
+  rawTouchable: [(t) => touchables(t).length, '<Button>, <IconButton> or a kit row'],
+  unlabelledTouchable: [(t) => touchables(t).filter(x => !x.labelled && !x.hasText).length, 'accessibilityLabel on anything without readable text'],
+  rawText:      [(t) => (t.match(/<Text\b/g) ?? []).length, 'the kit\'s text components'],
+};
+const BASE = cfg.stack === 'react-native' ? NATIVE_METRICS : DEFAULT_METRICS;
+const PER_FILE = cfg.stack === 'react-native';
+const METRICS = Object.fromEntries(Object.entries(BASE).filter(([k]) => !(cfg.kit?.disable ?? []).includes(k)));
 for (const [k, re] of Object.entries(cfg.kit?.metrics ?? {})) METRICS[k] = [any(new RegExp(re, 'g')), cfg.kit?.hints?.[k] ?? 'the kit component'];
-const exempt = (rel) => isKit(cfg, rel) || (cfg.kit?.exempt ?? []).some(e => rel === e || rel.startsWith(e + '/'));
+const exempt = (rel) => isKit(cfg, rel) || rel === cfg.tokenModule || cfg.tokenFiles.includes(rel) || (cfg.kit?.exempt ?? []).some(e => rel === e || rel.startsWith(e + '/'));
 
 const current = {};
 for (const f of sourceFiles(cfg)) {
   if (exempt(f.rel)) continue;
   const counts = Object.fromEntries(Object.keys(METRICS).map(k => [k, 0]));
-  for (const line of f.text.split('\n')) {
+  if (PER_FILE) {
+    const text = f.text.split('\n').map(l => (/kit-exempt:|token-exempt:/.test(l) ? '' : l)).join('\n');
+    for (const [k, [fn]] of Object.entries(METRICS)) counts[k] += fn(text);
+  } else for (const line of f.text.split('\n')) {
     if (isComment(line) || /kit-exempt:|token-exempt:/.test(line)) continue;
     for (const [k, [fn]] of Object.entries(METRICS)) counts[k] += fn(line);
   }
@@ -69,7 +86,7 @@ const sum = (o, k) => Object.values(o).reduce((a, c) => a + (c[k] ?? 0), 0);
 if (args.includes('--init')) {
   if (existsSync(BASELINE) && !args.includes('--force')) { console.error(`${BASELINE} exists. The ceiling is set once; use --update-baseline to lower it.`); process.exit(1); }
   writeFileSync(BASELINE, JSON.stringify(sorted(current), null, 2) + '\n');
-  console.log(`Baseline: ${Object.keys(current).length} files, ${Object.keys(METRICS).map(k => `${k} ${sum(current, k)}`).join(', ')}.`);
+  console.log(`Stack: ${cfg.stack}. Baseline: ${Object.keys(current).length} files, ${Object.keys(METRICS).map(k => `${k} ${sum(current, k)}`).join(', ')}.`);
   process.exit(0);
 }
 

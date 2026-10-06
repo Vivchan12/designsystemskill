@@ -1,6 +1,6 @@
 ---
 name: design-system-rollout
-description: Turn an app's scattered UI (hand-styled buttons, ad-hoc font sizes, one-off cards, raw colours, inconsistent labels) into one enforced design system — tokens, a component kit, CI guards and a writing guide — and migrate every screen onto it. Use this whenever someone wants to make a product's UI consistent, "put the design elements into a system", build or adopt a component library, clean up typography/spacing/colours across a codebase, add a design-token or type-scale guard, audit UI drift, standardise button/card/dialog styles, write a UI copy style guide, or create or update the product's Claude Design file (design system and screens canvas) from the code — even if they only say "the app looks inconsistent", "tidy up the design", or "make every screen use the same components". Works best on React + Tailwind; the process and guards adapt to other stacks.
+description: Turn an app's scattered UI (hand-styled buttons, ad-hoc font sizes, one-off cards, raw colours, inconsistent labels) into one enforced design system — tokens, a component kit, CI guards and a writing guide — and migrate every screen onto it. Use this whenever someone wants to make a product's UI consistent, "put the design elements into a system", build or adopt a component library, clean up typography/spacing/colours across a codebase, add a design-token or type-scale guard, audit UI drift, standardise button/card/dialog styles, write a UI copy style guide, or create or update the product's Claude Design file (design system and screens canvas) from the code — even if they only say "the app looks inconsistent", "tidy up the design", or "make every screen use the same components". Supports React with Tailwind or CSS, and React Native / Expo (style objects, tokens as a TypeScript object).
 ---
 
 # Design system rollout
@@ -30,6 +30,17 @@ Alongside them, a **design file in Claude Design**: a Design System (tokens and 
 | Bugs were found by reading code ("looks done") | Verify each wave by **rendering** (screenshots light/dark/phone + `audit-render.mjs`), not by a second grep. |
 | The same traps were hit repeatedly | Read `references/pitfalls.md` before writing any codemod. |
 
+## Which stack?
+
+Every script detects the stack from `package.json` and prints it at the top:
+**tailwind**, **css** or **react-native**. On React Native the scripts read
+style objects and a TypeScript tokens object instead of class names and CSS;
+read `references/react-native.md` before Phase 0, because it adds phone-only
+decisions (tap targets, text scaling, safe areas, day and night) and covers
+art and animation as part of the system. If a report's stack is wrong, set
+`"stack"` in the config. A report full of zeros on a real app means the scan
+couldn't read it, not that the app is clean, and the inventory says so.
+
 ## Two routes
 
 - **Full rollout**: the app's UI is styled by hand. Follow every phase below.
@@ -55,6 +66,8 @@ phase until it passes. Tell the owner which phase you're in as you go.
    - hand-built dialogs, spinners, form fields, step counters, tables and progress bars;
    - Title Case labels, "!", "..." and typed arrows;
    - classes that can't exist (a palette shade such as `gray-150` that Tailwind doesn't have). These render nothing, silently.
+   - on React Native: literal style values per family (and how many already go through a token), hand-built touchables, touchables with no label, and text styles with no font family;
+   - tokens defined but never used, and files nothing imports (dead components still on the old look: delete them rather than migrate them).
 5. Write a 10-line summary for the owner: the headline counts, the 3 worst areas, and any broken guard or stale doc you found.
 6. **Find or make sample data.** The render audit, the screenshots and the Claude Design capture all need the app to render real screens offline: a signed-in test user with believable content in every main screen. Look for an existing fixture, seed script or stubbed sign-in (tests, Storybook, an e2e setup). If there isn't one, write `scripts/audit-setup.mjs`. It signs in, or stubs the auth and network calls with `page.route(...)`, and loads sample data. Never use a real user's data, and never lorem ipsum. Without it, every later "verify by rendering" step checks an empty or signed-out page.
 
@@ -160,6 +173,7 @@ For each wave:
 | `references/codemods.md` | Before writing any codemod (Phase 4) |
 | `references/claude-design.md` | The design-file-only route, and Phases 1, 3, 4 and 6 of a full rollout |
 | `scripts/export-tokens.mjs` (+ `.test.mjs`), `bundle-kit.mjs`, `check-design-sync.mjs`, `audit-render.mjs --capture` | Copy into the project's `scripts/design/`: tokens, component previews, screen capture, staleness check |
+| `references/react-native.md` | Before Phase 0 on a React Native or Expo app |
 | `references/pitfalls.md` | Before Phase 2, and whenever something "looks done" but you haven't rendered it |
 | `assets/design-system.config.json`, `assets/ci-snippet.yml` | Phase 0 and Phase 2 |
 | `assets/DESIGN-SYSTEM.template.md`, `assets/WRITING.template.md` | Phases 3 and 5 |

@@ -21,10 +21,12 @@
  *   node check-tokens.mjs            # exit 1 on any finding
  *   node check-tokens.mjs --list     # print findings, never fail (for planning)
  */
-import { loadConfig, sourceFiles, classStrings, readTokens, isComment, isKit } from './lib.mjs';
+import { loadConfig, sourceFiles, classStrings, readTokens, isComment, isKit, loadModule, flatten, getPath } from './lib.mjs';
+import { styleBlocks, literal, FAMILY } from './rn.mjs';
 
 const cfg = loadConfig();
 const LIST = process.argv.includes('--list');
+if (cfg.stack === 'react-native') { await native(); process.exit(0); }
 const tokens = readTokens(cfg);
 if (!cfg.tokenFiles.length || !Object.keys(tokens).length) {
   console.error(`✗ No tokens found. Set "tokenFiles" in design-system.config.json (looked in: ${cfg.tokenFiles.join(', ') || 'none of the defaults exist'}).`);
@@ -67,4 +69,43 @@ if (out.length) {
   if (!LIST) process.exit(1);
 } else {
   console.log(`✓ No token duplication or off-scale type (${Object.keys(tokens).length} tokens, ${rungs.length} type rungs).`);
+}
+
+/** React Native: tokens are a TypeScript object ("tokenModule"), and screens
+ *  use style objects. "tokenMap" says where each family lives in that object:
+ *  { "type": "type", "space": "space", "radius": "radius", "colors": ["palette.day", "palette.night"] } */
+async function native() {
+  if (!cfg.tokenModule) { console.error('✗ React Native project: set "tokenModule" (the file exporting the tokens object) and "tokenMap" in design-system.config.json.'); process.exit(1); }
+  let mod;
+  try { mod = await loadModule(cfg, cfg.tokenModule); } catch (e) { console.error(`✗ ${e.message}`); process.exit(1); }
+  const map = { type: 'type', space: 'space', radius: 'radius', colors: ['colors'], ...cfg.tokenMap };
+  const pick = (path) => flatten(getPath(mod, path) ?? {}, path);
+  const byValue = (flat, keyTest = () => true) => { const o = {}; for (const [k, v] of Object.entries(flat)) if (keyTest(k) && (typeof v === 'number' || typeof v === 'string')) o[String(v).toLowerCase()] ??= k; return o; };
+  const typeFlat = pick(map.type);
+  const sizes = new Set(Object.entries(typeFlat).filter(([k, v]) => typeof v === 'number' && (/fontSize$/.test(k) || !/lineHeight|letterSpacing|fontWeight/.test(k))).map(([, v]) => v));
+  const space = byValue(pick(map.space)), radius = byValue(pick(map.radius));
+  const colour = {}; for (const p of [].concat(map.colors)) Object.assign(colour, byValue(pick(p)));
+  const found = Object.keys(typeFlat).length + Object.keys(space).length + Object.keys(radius).length + Object.keys(colour).length;
+  if (!found) { console.error(`✗ No tokens found in ${cfg.tokenModule} at ${JSON.stringify(map)}. Fix "tokenMap".`); process.exit(1); }
+  const out = [];
+  for (const f of sourceFiles(cfg)) {
+    if (isKit(cfg, f.rel) || f.rel === cfg.tokenModule) continue;
+    const lines = f.text.split('\n');
+    for (const b of styleBlocks(f.text)) {
+      if (/token-exempt:/.test(lines[b.line - 1] ?? '')) continue;
+      const at = `${f.rel}:${b.line}`;
+      for (const [k, v] of Object.entries(b.props)) {
+        const lit = literal(v), fam = FAMILY(k);
+        if (lit === null) continue;
+        if (fam === 'fontSize') out.push(`${at}  fontSize: ${lit} ${sizes.has(lit) ? 'is on the scale, but' : 'is off the type scale, and'} set by hand — use a text style`);
+        else if (fam === 'colour' && colour[lit]) out.push(`${at}  ${k}: ${v} is ${colour[lit]} — use the theme`);
+        else if (fam === 'radius' && radius[String(lit)]) out.push(`${at}  ${k}: ${lit} is ${radius[String(lit)]} — use the token`);
+        else if (['padding', 'margin', 'gap'].includes(fam) && lit !== 0 && space[String(lit)]) out.push(`${at}  ${k}: ${lit} is ${space[String(lit)]} — use the token`);
+      }
+    }
+  }
+  if (out.length) {
+    console.log(out.join('\n') + `\n\n${out.length} token finding(s) (React Native).`);
+    if (!LIST) process.exit(1);
+  } else console.log(`✓ No hand-set values that duplicate a token (React Native: ${sizes.size} type sizes, ${Object.keys(space).length} spacing, ${Object.keys(radius).length} radii, ${Object.keys(colour).length} colours).`);
 }

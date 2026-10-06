@@ -92,7 +92,8 @@ export function uiStrings(line, prev = '') {
   for (const m of line.matchAll(/\b(label|title|subLabel|heading)\s*:\s*(['"])([^'"]{2,80})\2/g)) out.push({ kind: 'object', text: m[3] });
   for (const m of line.matchAll(/\?\s*'([^']{2,80})'\s*:\s*'([^']{2,80})'/g)) out.push({ kind: 'ternary', text: m[1] }, { kind: 'ternary', text: m[2] });
   // Not text: TypeScript between angle brackets (React.FC<{ a: () => void }>).
-  return out.filter(s => /[A-Za-z]{2}/.test(s.text) && !/;|=>|\?:|\bReact\.|\bvoid\b|\s\?\s.*\s:\s|&&|\|\|/.test(s.text));
+  // Not text either: code that happens to sit between > and < (`= new Promise<void>`, `x as Foo`).
+  return out.filter(s => /[A-Za-z]{2}/.test(s.text) && !/;|=>|=|\?:|\bReact\.|\bvoid\b|\s\?\s.*\s:\s|&&|\|\||\bnew [A-Z]|\bas [A-Z]|^\s*[)(,.]/.test(s.text));
 }
 
 export function findings(line, prev = '') {

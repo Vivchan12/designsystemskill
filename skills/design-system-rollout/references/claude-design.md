@@ -86,6 +86,12 @@ hand-added.
 every component has a card showing its real states, fonts are in, and the
 report's contrast failures are named in the README.
 
+### On React Native
+
+- **Tokens:** `export-tokens.mjs` reads `tokenModule`, merging each theme's colours by name.
+- **Component cards:** `bundle-kit.mjs` builds the kit through `react-native-web`. Without it, use captures from the Expo web build as static cards.
+- **Screens:** capture from the Expo web build with a `screens` module (`react-native.md`), at 390 wide. Add the art (illustrations, character frames) as design-system assets by group, because on many native apps the art *is* the look.
+
 ## 2. The canvas
 
 | Row | Artboards |

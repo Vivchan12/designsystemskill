@@ -52,15 +52,28 @@ const shimPlugin = {
 const darkClass = kit.darkClass ?? 'dark';
 const banner = `(function(){var d=document.documentElement;function s(){d.classList.toggle(${JSON.stringify(darkClass)},d.getAttribute('data-theme')==='dark')}s();new MutationObserver(s).observe(d,{attributes:true,attributeFilter:['data-theme']})})();`;
 
+// React Native: the kit renders in the browser through react-native-web, the
+// same way Expo's web build does. Without it there is nothing to render.
+const native = cfg.stack === 'react-native';
+if (native && !existsSync(join(cfg.root, 'node_modules/react-native-web'))) {
+  console.error('✗ React Native kit: install react-native-web (Expo: npx expo install react-native-web react-dom) so the kit can render in a browser.\n  Without it, make the component cards from captures of the Expo web build instead (references/react-native.md).');
+  process.exit(1);
+}
+const nativeOpts = native ? {
+  alias: { 'react-native': 'react-native-web' },
+  resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js'],
+  loader: { '.png': 'dataurl', '.jpg': 'dataurl', '.ttf': 'empty', '.otf': 'empty' },
+  define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}', __DEV__: 'false', global: 'window' },
+} : {};
 const result = await esbuild.build({
   entryPoints: [join(cfg.root, entry)], bundle: true, write: false, format: 'iife', globalName: namespace,
   platform: 'browser', target: 'es2019', minify: kit.minify ?? true, metafile: true, jsx: 'automatic',
   define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' },
-  plugins: [shimPlugin], logLevel: 'silent',
+  plugins: [shimPlugin], logLevel: 'silent', ...nativeOpts,
 }).catch(e => { console.error(e.message); process.exit(1); });
 
 // An IIFE build doesn't list its exports; an ESM pass of the same entry does.
-const esm = await esbuild.build({ entryPoints: [join(cfg.root, entry)], bundle: true, write: false, format: 'esm', metafile: true, jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' }, plugins: [shimPlugin], logLevel: 'silent', outdir: 'x' });
+const esm = await esbuild.build({ entryPoints: [join(cfg.root, entry)], bundle: true, write: false, format: 'esm', metafile: true, jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env': '{}' }, plugins: [shimPlugin], logLevel: 'silent', outdir: 'x', ...nativeOpts });
 const exportsList = Object.values(esm.metafile.outputs).find(o => o.entryPoint)?.exports ?? [];
 const components = exportsList.filter(n => /^[A-Z][a-z]/.test(n));   // components, not CONSTANTS
 const parts = new Set(kit.parts ?? []);   // shown inside a parent's card: no card of their own

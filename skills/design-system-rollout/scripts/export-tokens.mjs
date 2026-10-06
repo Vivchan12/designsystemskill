@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
-import { loadConfig } from './lib.mjs';
+import { loadConfig, loadModule, flatten, getPath } from './lib.mjs';
 
 const cfg = loadConfig();
 const CHECK = process.argv.includes('--check') || process.argv.includes('--notes-stub');
@@ -31,6 +31,11 @@ const cd = {
   out: 'claude-design',
   ...cfg.claudeDesign,
 };
+// React Native keeps tokens in a TypeScript object, not CSS. "claudeDesign.module"
+// says where each family lives in it; colour themes are the keys of "colors".
+const NATIVE = cfg.stack === 'react-native';
+const NM = { colors: { light: (cfg.tokenMap?.colors ?? [])[0] ?? 'colors' , ...((cfg.tokenMap?.colors ?? [])[1] ? { dark: cfg.tokenMap.colors[1] } : {}) }, type: cfg.tokenMap?.type ?? 'type', space: cfg.tokenMap?.space ?? 'space', radius: cfg.tokenMap?.radius ?? 'radius', shadow: 'shadow', ...cd.module };
+if (NATIVE) cd.themes = Object.fromEntries(Object.keys(NM.colors).map(k => [k, []]));
 const P = { type: cfg.typeTokenPrefix, radius: '--radius-', spacing: '--space-', shadow: '--shadow-', font: '--font-', ...cfg.claudeDesign?.prefixes };
 const folder = cd.folder ?? cd.name.toLowerCase().replace(/[^a-z0-9_]+/g, '-').replace(/^[-_]+|-+$/g, '');
 const out = join(cfg.root, cd.out);
@@ -127,7 +132,7 @@ try { ref = execSync('git rev-parse --abbrev-ref HEAD', { cwd: cfg.root, stdio: 
 
 const T = {
   name: cd.name, version: 1,
-  meta: { source: 'code', paths: cfg.tokenFiles, ref, exportedAt: new Date().toISOString() },
+  meta: { source: 'code', paths: NATIVE ? [cfg.tokenModule] : cfg.tokenFiles, ref, exportedAt: new Date().toISOString() },
   color: { themes: themeIds.map(id => ({ id, name: id[0].toUpperCase() + id.slice(1) })), tokens: [] },
   type: { fonts: [], families: {}, groups: [{ name: 'Text', family: 'sans', styles: [] }] },
   spacing: { tokens: [] }, radius: { tokens: [] }, shadow: { tokens: [] },
@@ -172,6 +177,31 @@ for (const name of names) {
   } else if (COLOR.test(first)) {
     T.color.tokens.push(one(perTheme(name, s => COLOR.test(s))));
   } else skipped.push(`${name}: ${first}`);
+}
+if (NATIVE) {
+  if (!cfg.tokenModule) { console.error('✗ React Native project: set "tokenModule" and "claudeDesign.module" (or "tokenMap") in design-system.config.json.'); process.exit(1); }
+  const mod = await loadModule(cfg, cfg.tokenModule);
+  const slug = (k) => k.replace(/\./g, '-').replace(/[^A-Za-z0-9_.-]/g, '-');
+  // Colours: one token per name, a value per theme.
+  const perTheme = {};
+  for (const [th, path] of Object.entries(NM.colors)) for (const [k, v] of Object.entries(flatten(getPath(mod, path) ?? {}))) if (typeof v === 'string' && COLOR.test(v)) (perTheme[slug(k)] ??= {})[th] = /^#/.test(v) ? v.toLowerCase() : v;
+  for (const [name, value] of Object.entries(perTheme)) T.color.tokens.push({ name, value, usage: noteFor(name) });
+  for (const [fam, path] of [['spacing', NM.space], ['radius', NM.radius]])
+    for (const [k, v] of Object.entries(flatten(getPath(mod, path) ?? {}, path))) if (typeof v === 'number') T[fam].tokens.push({ name: slug(k), value: `${v}px`, usage: noteFor(slug(k)) });
+  for (const [k, v] of Object.entries(flatten(getPath(mod, NM.shadow) ?? {}, NM.shadow))) if (typeof v === 'string') T.shadow.tokens.push({ name: slug(k), value: v, usage: noteFor(slug(k)) });
+  // Type: each style object { fontSize, lineHeight, fontWeight, fontFamily, letterSpacing }.
+  for (const [name, st] of Object.entries(getPath(mod, NM.type) ?? {})) {
+    if (!st || typeof st !== 'object' || typeof st.fontSize !== 'number') continue;
+    const style = { name, fontSize: `${st.fontSize}px` };
+    if (st.lineHeight) style.lineHeight = `${st.lineHeight}px`;           // React Native line heights are absolute
+    if (st.fontWeight) style.fontWeight = Number(st.fontWeight) || st.fontWeight;
+    if (st.letterSpacing) style.letterSpacing = `${st.letterSpacing}px`;
+    if (st.fontFamily) { const key = st.fontFamily.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); T.type.families[key] ??= `"${st.fontFamily}", system-ui, sans-serif`; style.family = key; }
+    else problems.push(`type style "${name}" has no fontFamily: it renders in the system font on the device`);
+    const n = cd.notes[name]; if (n) style.usage = n;
+    const conf = cd.textStyles[name] ?? {}; Object.assign(style, conf);
+    T.type.groups[0].styles.push(style);
+  }
 }
 const fam = Object.keys(T.type.families);
 if (fam.length && !T.type.families.sans) T.type.groups[0].family = fam[0];
@@ -256,6 +286,6 @@ else console.log('\nContrast not checked: add claudeDesign.contrast { text, grou
 if (noUsage.length) console.log(`\n**${noUsage.length} tokens have no usage note.** Add each to claudeDesign.notes (keeps the CSS comments as they are):\n${noUsage.join(', ')}`);
 if (problems.length) console.log(`\n**To fix:**\n${problems.map(p => '- ' + p).join('\n')}`);
 if (skipped.length) console.log(`\n**Not exported** (layout sizes, motion and other values Claude Design has no family for):\n${skipped.map(s => '- ' + s).join('\n')}`);
-if (!decls.length) { console.log('\nNo tokens found: check `tokenFiles` and the `claudeDesign.themes` selectors.'); process.exit(1); }
+if (!decls.length && !T.color.tokens.length && !T.type.groups[0].styles.length) { console.log(`\nNo tokens found: check ${NATIVE ? '`tokenModule` and `claudeDesign.module`' : '`tokenFiles` and the `claudeDesign.themes` selectors'}.`); process.exit(1); }
 // Never report success over a known problem: exit 1 so CI and agents notice.
 if (Object.keys(unlisted).length || problems.some(p => p.startsWith('font file'))) { console.log('\n✗ Not clean: fix the items above before publishing.'); process.exit(1); }

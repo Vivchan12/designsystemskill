@@ -1,4 +1,8 @@
 {
+  "stack": "auto",
+  "_stack": "auto detects from package.json: tailwind, css or react-native. On React Native also set tokenModule, tokenMap and routesDir (references/react-native.md).",
+  "tokenModule": "src/theme/tokens.ts",
+  "tokenMap": { "type": "type", "space": "space", "radius": "radius", "colors": ["palette.day", "palette.night"] },
   "srcDirs": ["src", "components"],
   "kitDir": "components/ui",
   "exempt": ["node_modules", "dist", "build"],
@@ -52,6 +56,8 @@
   "audit": {
     "setup": "scripts/audit-setup.mjs",
     "captureRoot": "#root",
+    "screens": "scripts/audit-screens.mjs",
+    "minTarget": 44,
     "scope": ".app-shell",
     "headerSelector": "header h1"
   }

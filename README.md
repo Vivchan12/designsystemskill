@@ -5,7 +5,7 @@ Two Claude skills, meant to be used in this order:
 | Skill | What it does |
 |---|---|
 | [design-system-rollout](#design-system-rollout) | Takes an app from "every screen styled by hand" to one kit, with CI guards that stop it drifting back. |
-| [accessible-text-scaling](#accessible-text-scaling) | Makes the app follow the text size people set on their phone or browser, within a readable range, and keeps layouts whole at large sizes. Needs the named text roles the first skill creates. |
+| [accessible-scaling](#accessible-scaling) | Makes the app follow the text size people set on their phone or browser, within a readable range, and keeps layouts whole at large sizes. Needs the named text roles the first skill creates. |
 
 # design-system-rollout
 
@@ -57,14 +57,14 @@ rm -rf ~/.claude/skills/design-system-rollout
 cp -r /tmp/designsystemskill/skills/design-system-rollout ~/.claude/skills/
 ```
 
-For the text-scaling skill, do the same with `accessible-text-scaling`.
+For the second skill, do the same with `accessible-scaling`.
 
 This replaces only that one skill folder. If `/tmp/designsystemskill` already
 exists, `git -C /tmp/designsystemskill pull` first, or the copy will be stale.
 For one project only, copy it into `<project>/.claude/skills/` instead.
 
 **In the Claude apps**: download `dist/design-system-rollout.skill` (or
-`dist/accessible-text-scaling.skill`) and open it in a conversation. The file card has a **Save skill** button.
+`dist/accessible-scaling.skill`) and open it in a conversation. The file card has a **Save skill** button.
 
 ## Use
 
@@ -136,14 +136,14 @@ skills/design-system-rollout/
   scripts/       status, inventory, guards, render audit, token export, kit bundle, design sync, tests
   references/    decisions sheet, kit API, codemods, pitfalls, Claude Design, React Native
   assets/        config template, CI snippet, DESIGN-SYSTEM and WRITING templates
-skills/accessible-text-scaling/
+skills/accessible-scaling/
   SKILL.md       the process: audit, agree the scale, apply it once, fix layouts, keep it
   scripts/       scale table and code generator, audit, tests
   references/    the policy, each platform, layouts at large sizes, testing
   assets/        config template, large-text switch (web), review tool (web, React Native)
 dist/
   design-system-rollout.skill
-  accessible-text-scaling.skill
+  accessible-scaling.skill
 ```
 
 ## How it was tested
@@ -156,7 +156,7 @@ dist/
 Not yet done: a full rollout run start to finish by the skill, and the build
 phases on React Native.
 
-# accessible-text-scaling
+# accessible-scaling
 
 People set their text size on their phone or browser: bigger because they
 can't read small text, smaller to fit more on screen. This skill makes an app
@@ -178,7 +178,7 @@ check. React Native and Expo, the web, iOS, Android and Flutter.
 `text-scale.config.json` in your project root, template in `assets/`):
 
 ```bash
-S=~/.claude/skills/accessible-text-scaling/scripts
+S=~/.claude/skills/accessible-scaling/scripts
 node $S/text-scale-audit.mjs                 # where the setting is blocked, or breaks the layout
 node $S/text-scale-audit.mjs --strict        # CI: fail while anything blocks the setting
 node $S/scale-table.mjs                      # the scale: every phone setting × every text role

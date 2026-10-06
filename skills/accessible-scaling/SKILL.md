@@ -1,9 +1,9 @@
 ---
-name: accessible-text-scaling
+name: accessible-scaling
 description: Make an app respect the text size people set on their phone or browser (iPhone Dynamic Type, Android font scale, browser text size), within a range that stays readable and keeps layouts whole. Builds an accessibility text scale per text role (a floor so small settings never make text unreadable, a ceiling of at least 200% for reading text, smaller ceilings for large headings), generates the code that applies it, fixes the layouts that break at large sizes, and adds a check that stops scaling being switched off again. Use this whenever someone mentions large text, Dynamic Type, font scale, accessibility text size, older users or users with low vision, "text gets huge on some phones", "the layout breaks when people make the font bigger", allowFontScaling, maxFontSizeMultiplier, or WCAG text resize. Works on React Native and Expo, iOS, Android, Flutter and the web. Best run after a design system exists (named text roles), for example after the design-system-rollout skill.
 ---
 
-# Accessible text scaling
+# Accessible scaling
 
 People set their text size on their phone: bigger because they can't read
 small text, smaller to fit more on the screen. An app should follow that

@@ -6,6 +6,8 @@
     "Backlog": "src/screens/Backlog.tsx",
     "Summary": "src/screens/Summary.tsx"
   },
+  "root": "Project setup",
+  "none": {},
   "guideMarker": "<Wizard\\b|<WizardStep\\b",
   "checklistMarker": "summaryChecks|<Checklist\\b",
   "flowMap": {
@@ -17,5 +19,15 @@
       "Backlog": "BACKLOG",
       "Summary": "SUMMARY"
     }
+  },
+  "types": [
+    "src/types.ts"
+  ],
+  "collections": [
+    "personas",
+    "valueProps"
+  ],
+  "ignore": {
+    "src/screens/Auth.tsx#onAuthChange._event": "an unused callback argument, not dropped data"
   }
 }

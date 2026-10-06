@@ -15,7 +15,7 @@ reading a canvas returns them, and they change between releases.
 
 | Moment | On the canvas |
 |---|---|
-| **Phase 1, sign-off** | One row per tool that gets a guide, titled "Guide: <Tool>". One artboard per proposed step: the question, the hint, and the options *as they would be gathered from the owner's real data*. This makes a step with nothing to offer show up as empty before anyone builds it. |
+| **Phase 1, sign-off** | One row per tool that gets a guide, titled "Guide: <Tool>". One artboard per proposed step: the question, the hint, and the options *as they would be gathered from the sample data* (Phase 0's test user, whose every tool has believable content). Never a real user's data. This makes a step with nothing to offer show up as empty before anyone builds it. |
 | **Phase 2, built** | Replace each proposed artboard with the built step, matched to a screenshot of the running guide. |
 | **Phase 3, connected** | One artboard showing the flow map: tools as boxes in build order, arrows for "reads from", and the review dialog with one real example. |
 | **Any later change to a guide or to the main screen** | Update those artboards in the same piece of work. The main screen is always checked: a guide's entry point usually lives there. |

@@ -38,3 +38,22 @@ the options come from. The guide offers them; it never fills them in silently.
 | **Pitch rehearsal / practice chat** | Setup brief: 1. Who you're pitching, and the stage → 2. The ask → 3. The question you dread (suggested from gaps: untested high-risk assumption, no financial model, no real competitors, no customer evidence) | the deck's Ask slide; the risk register; experiments |
 | **Pitch deck** | 1. Audience → 2. The ask and use of funds → 3. Key differentiator and market size → 4. Generate (split long generations to stay under timeouts) | value proposition; business model; financials; competitors |
 | **1-pager / data room / summary** | Checklist: premise · customer and job · value · evidence from real customers · competitors · financial model · the ask · riskiest assumptions known | every tool it summarises |
+
+## Other kinds of product
+
+The recipes above come from a product-strategy app. The same paths fit other
+products whose screens build on each other:
+
+| Product | Tool | Path | Gathers from |
+|---|---|---|---|
+| **Analytics / dashboards** | A new dashboard | Guide: 1. Who reads it, and what decision it serves → 2. The 3–5 measures that inform that decision → 3. Compared with what (target, last period, segment) → 4. Who is alerted when, and at what threshold | the metrics already defined; existing dashboards' measures |
+| | A weekly report | Checklist: each measure has data this period · each has a comparison · anomalies explained · owner named | the dashboards it summarises |
+| **CRM / sales pipeline** | A new deal | Guide: 1. Which account (existing first) → 2. The problem they have, in their words → 3. Next step and date → 4. Stage, from the next step, not a guess | accounts; past notes and calls |
+| | The pipeline | Triage: deals with no next step, or a next step in the past, one at a time | deals |
+| **Learning / courses** | A learner's plan | Guide: 1. Goal → 2. What they know (from the assessment) → 3. Time per week → 4. Plan, built from the gaps | the assessment; the course catalogue |
+| **Admin / settings** | Settings | Usually `none, because` it's a list of independent switches. A first-run setup across several settings is a guide, though. |
+| **Projects / operations** | A project plan | Guide: 1. Outcome → 2. Milestones → 3. Risks (from past projects' issues) → 4. Owners | templates; past projects |
+| | A status report | Checklist, assembled from the plan and the tasks | the plan; tasks; risks |
+
+When a product's tools don't match any row, use `choosing.md` from first
+principles: find the decisions, and say where each one's options come from.

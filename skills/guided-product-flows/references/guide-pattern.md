@@ -85,6 +85,33 @@ Rules:
 - **Never block on the model.** Next is enabled by the user's own answer. A "Show suggestions" button may spend one AI call to offer options; picking one only fills the field.
 - **A long label truncates; evidence goes on its own line** so it can wrap.
 
+## Plans without AI
+
+A guide is the user's decisions; AI only drafts around them. So every guide
+must work with no AI at all: no credits left, a plan without AI, or the
+service down.
+
+- **Decision steps never call AI.** Their options come from the other tools.
+- **"Show suggestions"** spends a call. When AI isn't available, show it disabled with the reason ("Suggestions use AI credit; you have none left this month"); don't hide it, and don't let it fail on click.
+- **The last step's draft** is offered alongside "Save without the draft". Without AI, only the save shows, and the result is complete without the draft.
+- Test it: run the guide with the AI call mocked to fail as "no credit", and check the user can finish and save.
+
+## Is it a good guide? (review checklist)
+
+The audit only checks that a guide exists. Review each one against this list
+before calling it done:
+
+- [ ] Each step asks **one** question, phrased as a question, that only the user can answer.
+- [ ] Each step's options come from **other tools' data**, with the strongest evidence first and its evidence shown. "Or write your own" is always there.
+- [ ] A step with nothing upstream says so and still lets the user write their own. It never shows invented options.
+- [ ] Next is disabled until the step is answered. Nothing else blocks; a bad shape gets a warning only.
+- [ ] Leaving part-way loses nothing (write as you go), or the tool says plainly that nothing is saved until the end.
+- [ ] It reopens at the first unfinished step.
+- [ ] It works with no AI (above).
+- [ ] 3–5 steps. More than 6 means split the tool or merge steps.
+- [ ] The full view shows where each item came from.
+- [ ] At phone width the options stack and stay tappable. By keyboard, focus lands on each new question.
+
 ## 3. The mode switch on the tool
 
 ```tsx

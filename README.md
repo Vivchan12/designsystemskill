@@ -110,8 +110,11 @@ template in `assets/`):
 
 ```bash
 node ~/.claude/skills/guided-product-flows/scripts/flow-audit.mjs
-# which tools have a guide or checklist, which are missing from the flow map,
-# and honesty signals: dropped arguments, sample data in files that write state
+# which tools have a guide or checklist, which are missing from the flow map, and
+# honesty signals: dropped arguments, sample data a button can write, link fields
+# nothing writes, inputs picked as [0]. --strict exits 1 while anything is open,
+# so it works as a phase's exit check and in CI.
+node ~/.claude/skills/guided-product-flows/scripts/flow-audit.test.mjs
 ```
 
 ---

@@ -1,14 +1,42 @@
-# design-system-rollout
+# Product skills for Claude
 
-A Claude skill that takes an app from "every screen styled by hand" to
-"every screen built from one kit, and CI stops it drifting back".
+Two Claude skills, each the condensed version of a piece of work that first
+took days by hand.
 
-It is the condensed version of a rollout that first took about three days:
-an inventory script instead of manual discovery, one decisions sheet instead
-of questions spread over days, CI guards installed on day one instead of
-after the migration, and five batches of work instead of twenty pull requests.
+| Skill | What it does |
+|---|---|
+| [`design-system-rollout`](skills/design-system-rollout/) | Takes an app from "every screen styled by hand" to "every screen built from one kit, and CI stops it drifting back". |
+| [`guided-product-flows`](skills/guided-product-flows/) | Gives every tool in a multi-tool product a way in that isn't a blank page, connects the data between tools, and removes anything on screen that claims more than the data behind it. |
 
-## What it does
+## Install
+
+> **The layout changed.** Each skill now lives in `skills/<name>/`, and the
+> `.skill` files are in `dist/`. If you cloned this repo straight into
+> `~/.claude/skills/design-system-rollout`, delete that folder and install
+> again as below.
+
+**In Claude Code**: copy the skills into your skills folder.
+
+```bash
+git clone https://github.com/Vivchan12/designsystemskill.git /tmp/productskills
+mkdir -p ~/.claude/skills && cp -r /tmp/productskills/skills/* ~/.claude/skills/
+```
+
+For one project only, copy them into `<project>/.claude/skills/` instead.
+
+**In the Claude apps**: download a file from `dist/` and open it in a
+conversation. The file card has a **Save skill** button.
+
+---
+
+## design-system-rollout
+
+The work behind it took about three days. The skill shortens it with:
+
+- an inventory script instead of finding the variants by hand;
+- one decisions sheet instead of questions spread over days;
+- CI guards installed on day one instead of after the migration;
+- five batches of work instead of twenty pull requests.
 
 Three layers, and screens only ever touch the top one:
 
@@ -16,63 +44,76 @@ Three layers, and screens only ever touch the top one:
 2. **Components.** A kit built only from tokens. Components take *meaning* (variant, tone, size), never styling classes.
 3. **Guards.** CI checks that block anything bypassing 1–2, plus a render audit that measures the real page.
 
-The skill walks through seven phases: inventory, decisions, foundations and
-guards, the kit, five migration waves, the writing guide, and locking it in.
+Seven phases: inventory, decisions, foundations and guards, the kit, five
+migration waves, the writing guide, and locking it in.
 
-## Install
+**Ask for it like this:**
 
-**In Claude Code** — clone it into your skills folder:
+> Our app's UI is inconsistent: buttons, font sizes and cards are all styled by hand. Put the design elements into one system.
 
-```bash
-git clone https://github.com/Vivchan12/designsystemskill ~/.claude/skills/design-system-rollout
-```
+It starts with an audit and a decisions sheet, and changes no code until you
+have signed those off.
 
-Or per project: clone into `<project>/.claude/skills/design-system-rollout`.
-
-**In the Claude apps:** download `design-system-rollout.skill` from this repo
-and open it in a conversation; the file card has a **Save skill** button.
-
-## Use
-
-Point Claude at the project and say what you want, for example:
-
-> Our app's UI is inconsistent — buttons, font sizes and cards are all styled by hand. Put the design elements into one system.
-
-The skill triggers on requests like that. Or invoke it by name.
-
-It starts with an audit and a decisions sheet, and makes no code changes until
-you have signed those off.
-
-## Run the scripts on their own
-
-Every script is plain Node (18+), no dependencies, and reads
-`design-system.config.json` in your project root
-(template in `assets/design-system.config.json`).
+**Scripts** (plain Node 18+, no dependencies; they read
+`design-system.config.json` in your project root, template in `assets/`):
 
 ```bash
-node scripts/inventory.mjs --out ds-inventory.md   # what's there, and how many variants of each
-node scripts/check-tokens.mjs                      # raw values that duplicate a token; off-scale type
-node scripts/check-kit.mjs --init                  # record today's counts as the ceiling
-node scripts/check-kit.mjs                         # fail if hand-built UI grew in any file
-node scripts/check-kit.mjs --report                # what's left to migrate, worst files first
-node scripts/check-writing.mjs --list              # Title Case, "!", "...", typed arrows, old names
-node scripts/audit-render.mjs --shots              # measure the rendered page (needs playwright-core)
+S=~/.claude/skills/design-system-rollout/scripts
+node $S/inventory.mjs --out ds-inventory.md   # what's there, and how many variants of each
+node $S/check-tokens.mjs                      # raw values that duplicate a token; off-scale type
+node $S/check-kit.mjs --init                  # record today's counts as the ceiling
+node $S/check-kit.mjs                         # fail if hand-built UI grew in any file
+node $S/check-kit.mjs --report                # what's left to migrate, worst files first
+node $S/check-writing.mjs --list              # Title Case, "!", "...", typed arrows, old names
+node $S/audit-render.mjs --shots              # measure the rendered page (needs playwright-core)
 ```
+
+## guided-product-flows
+
+For products made of several tools that build on each other (canvases,
+planners, models, reports). Three things, in order:
+
+1. **A path into every tool.** Each tool gets one of: a guide (3–5 decisions, options gathered from the other tools), a checklist, a setup brief, or triage for items that arrive unjudged. Logic lives in a plain, tested module; the component only renders it.
+2. **Data that flows, and flags.** Which tool reads from which is declared once. An upstream edit flags the tools built on it, and a person reviews them. Nothing downstream is rewritten automatically.
+3. **Honesty.** Twelve patterns where a screen claims more than its data: sample data with a button that writes it, scores that can't be earned, handlers that drop what they're given, links nothing ever writes, and more.
+
+Six phases: map, decide each tool's path (one sign-off), build the guides,
+connect the data, honesty sweep, verify and hand over.
+
+**Ask for it like this:**
+
+> Every tool in our app starts as a blank page, and editing one doesn't tell the others. Give each tool a step-by-step path and connect the data between them.
+
+**Script** (plain Node 18+; reads `flows.config.json` in your project root,
+template in `assets/`):
+
+```bash
+node ~/.claude/skills/guided-product-flows/scripts/flow-audit.mjs
+# which tools have a guide or checklist, which are missing from the flow map,
+# and honesty signals: dropped arguments, sample data in files that write state
+```
+
+---
 
 ## What's in here
 
-| Path | What it is |
-|---|---|
-| `SKILL.md` | The playbook: seven phases, each with an exit check |
-| `scripts/` | The inventory, the three CI guards, the render audit, and their shared library |
-| `references/decisions.md` | The sheet to fill in and hand to the owner before any code is written |
-| `references/kit.md` | Each component's API, and the page-level rules the guards enforce |
-| `references/codemods.md` | The mechanical part of each migration wave, with the asserts that stop a silent no-op |
-| `references/pitfalls.md` | The traps: guards that check nothing, CSS that compiles to nothing, conversions that break names |
-| `assets/` | Config template, CI snippet, and templates for the design-system and writing docs |
+```
+skills/
+  design-system-rollout/   SKILL.md, scripts/, references/, assets/
+  guided-product-flows/    SKILL.md, scripts/, references/, assets/
+dist/
+  design-system-rollout.skill
+  guided-product-flows.skill
+```
 
-## Status
+## How they were tested
 
-The audit and decisions phases have been tested against a real pre-design-system
-codebase. The later migration phases come from a rollout done by hand, and
-have not yet been run end to end by the skill itself.
+Each skill was run on an early commit of a real product, before the work it
+describes had been done, against the same task without the skill.
+
+- **design-system-rollout:** passed 7 of 7 checks with the skill, 4 of 7 without, and finished faster.
+- **guided-product-flows:** with the skill, the run found all three honesty bugs that were later fixed by hand (a dropped quote, a sample list that wrote real data, an unearnable score). Without it, the run missed all three. Patterns 10–12 in its `honesty.md` came from what the run without the skill found.
+
+The audit and planning phases have been run by the skills themselves. The
+later build phases come from work done by hand, and have not yet been run
+end to end by either skill.

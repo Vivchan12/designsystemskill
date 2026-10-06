@@ -1,0 +1,21 @@
+{
+  "tools": {
+    "Project setup": "src/screens/Setup.tsx",
+    "Personas": "src/screens/Personas.tsx",
+    "Value proposition": "src/screens/ValueProposition.tsx",
+    "Backlog": "src/screens/Backlog.tsx",
+    "Summary": "src/screens/Summary.tsx"
+  },
+  "guideMarker": "<Wizard\\b|<WizardStep\\b",
+  "checklistMarker": "summaryChecks|<Checklist\\b",
+  "flowMap": {
+    "file": "src/services/dataFlow.ts",
+    "ids": {
+      "Project setup": "SETUP",
+      "Personas": "PERSONAS",
+      "Value proposition": "VALUE_PROP",
+      "Backlog": "BACKLOG",
+      "Summary": "SUMMARY"
+    }
+  }
+}

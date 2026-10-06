@@ -121,7 +121,7 @@ put2('src/navigation/Root.tsx', `import Calendar from '../screens/Calendar';\nex
 put2('src/screens/Calendar.tsx', `import { palette } from '../theme/tokens';
 export default function Calendar() {
   return (<SafeAreaView>
-    <Pressable style={s.icon} onPress={go}><Icon color="#A8382F" /></Pressable>
+    <Pressable style={s.icon} onPress={go}><Icon color="#9B3B4D" /></Pressable>
     <Pressable style={s.row} onPress={go}><Text allowFontScaling={false}>Today</Text></Pressable>
     <View style={{ backgroundColor: palette.day.ground }} />
   </SafeAreaView>);

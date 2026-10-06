@@ -33,13 +33,13 @@ const CSS = `
 :root {
   --ground: #FFFFFF;  /* base ground, overridden in the shell */
   --ink: #333333;
-  --accent: #FF4500;
+  --accent: #D4582A;
   --ink-alias: var(--ink);
   --shadow-lift: 0 1px 2px rgba(0,0,0,.1);
   --t-body: 0.8125rem;
 }
 .shell {
-  --ground: #E5E5E8;  /* shell ground */
+  --ground: #E7E9EC;  /* shell ground */
 }
 .shell p { font-size: var(--t-body); line-height: 1.45; font-weight: 500; }
 `;
@@ -47,10 +47,10 @@ const THEMES = { light: [':root', '.shell'], dark: ['.dark', '.dark .shell'] };
 
 const a = run(CSS, { name: 'Test', themes: THEMES, include: ['--'] });
 check('exits 0 when every scope is listed', a.code === 0, a.out);
-check('a scoped override beats the base block (light)', colour(a.tokens, 'ground')?.value.light === '#e5e5e8', JSON.stringify(colour(a.tokens, 'ground')));
+check('a scoped override beats the base block (light)', colour(a.tokens, 'ground')?.value.light === '#e7e9ec', JSON.stringify(colour(a.tokens, 'ground')));
 check('dark wins over the shell although it comes first in the file', colour(a.tokens, 'ground')?.value.dark === '#111111', JSON.stringify(colour(a.tokens, 'ground')));
 check('the most specific dark scope wins', colour(a.tokens, 'ink')?.value.dark === '#eeeeee');
-check('a theme with no override inherits the base', colour(a.tokens, 'accent')?.value.dark === '#ff4500');
+check('a theme with no override inherits the base', colour(a.tokens, 'accent')?.value.dark === '#d4582a');
 check('the note comes from the declaration that won', colour(a.tokens, 'ground')?.usage === 'shell ground', colour(a.tokens, 'ground')?.usage);
 check('an alias stays an alias', colour(a.tokens, 'ink-alias')?.value.light === '{ink}');
 check('shadows keep their dark value', a.tokens?.shadow.tokens[0]?.value?.dark === '0 1px 2px rgba(0,0,0,.5)', JSON.stringify(a.tokens?.shadow.tokens[0]));

@@ -18,7 +18,7 @@ Such an app fails its users in three predictable ways:
 3. **Fiction.** A score that can't move, a "synced" badge on fixture data, an email that claims "validated unit economics" when there is no model behind it. Every one of these is a button or label showing more than the data holds.
 
 This skill fixes all three. It's the distilled version of work done across a
-17-tool app, in an order that avoids its dead ends.
+product of about twenty tools, in an order that avoids its dead ends.
 
 ## Principles (the why behind every step)
 

@@ -27,6 +27,24 @@ This skill fixes all three. It's the distilled version of work done across a
 - **Downstream pulls; it is never pushed.** Upstream data reaches a tool only when the user takes it. An upstream edit *flags* the tools built on it; a person reviews; nothing is rewritten automatically.
 - **Every number and label must be earned by real data.** If there's nothing to measure, say so. A fixture is never reachable by a button that writes.
 
+## First: which parts fit this product?
+
+The three parts are independent. Decide which apply before mapping anything,
+and tell the owner in one line. Don't stop because the product isn't a
+"multi-tool workspace":
+
+| Part | Applies when | In a tabs-and-screens app (e.g. a mobile consumer app) |
+|---|---|---|
+| **Paths** (Phases 1–2) | A screen opens empty, or asks the user for several decisions at once | Onboarding, a plan or goal builder, a first check-in, any empty state with no way in. Most screens that just show content need nothing (`none, because`). |
+| **Data flow** (Phase 3) | Something on one screen is derived from data entered on another | A quiz result that drives today's recommendations; a profile that drives a plan. Ask: when the source changes, does what's built on it update, flag, or silently go stale? |
+| **Honesty** (Phase 4) | Always | Every app has numbers, badges, streaks, scores, sample content and fallbacks that can claim more than the data holds. |
+
+In this skill a **tool** is any screen or tab that owns data of its own (a
+check-in, a profile, a plan, a journal). In `flows.config.json`, list those, not
+every route. A product with one screen of its own data skips Phase 3; one that
+already has a guided first run might only need Phase 4. Run the parts that
+apply, and say which you skipped and why.
+
 ## Before you start: what this assumes
 
 The patterns come from a React app with one state object and an existing
@@ -35,7 +53,7 @@ Wizard component. Check each assumption, and adapt as follows when it doesn't ho
 | Assumes | If not |
 |---|---|
 | **One place the user's data lives**, with one update path (a root `useState`, a store, a reducer) | Any store works if there's a single function every write goes through: edit recording and flags hang off that function. If writes are scattered (components calling the database directly), the first job is a single write path. That is honesty §12, and it comes before Phase 3. |
-| **React** | The thinking modules are plain functions and carry over unchanged. Only the guide component and its test change (Vue, Svelte). |
+| **React** | The thinking modules are plain functions and carry over unchanged. Only the guide component and its test change (Vue, Svelte). In React Native or Expo, a guide is usually a stack of screens rather than one Wizard component: set `guideMarker` in `flows.config.json` to whatever the app's step flow renders (its stepper, or the navigator for the flow). |
 | **A Wizard component** (steps, Back/Next, progress, cancel) | The `design-system-rollout` skill builds one into the kit. Without it, build a minimal one first (the props are in `guide-pattern.md`) and use it for every guide. Twenty hand-made step flows is the mess this skill exists to prevent. |
 | **AI is available** | Every guide must work without it (`guide-pattern.md`, "Plans without AI"). |
 | **Sample data to render** | Phase 0 finds or makes it. Guides, screenshots and the canvas all need believable content in every tool. |

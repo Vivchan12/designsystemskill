@@ -1,0 +1,17 @@
+/* Reduce Motion for the web: import once from the entry CSS.
+   With the setting on, movement stops: animations and transitions finish
+   instantly, smooth scrolling becomes a jump. Fades and colour changes still
+   happen, just without travel. WCAG 2.3.3, Apple HIG Reduce Motion.
+
+   Motion that carries meaning (a progress indicator, a spinner while
+   something loads) can opt back in with data-motion="essential". */
+@media (prefers-reduced-motion: reduce) {
+  *:not([data-motion="essential"]):not([data-motion="essential"] *),
+  *:not([data-motion="essential"])::before,
+  *:not([data-motion="essential"])::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

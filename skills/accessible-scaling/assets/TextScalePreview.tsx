@@ -47,21 +47,21 @@ export function TextScalePreview({ children }: { children: React.ReactNode }) {
                 <Text allowFontScaling={false} style={s.lab}>{platform}</Text>
                 <View style={s.row}>
                   {SETTINGS.filter(x => x[0] === platform).map(([, name, v]) => (
-                    <Pressable key={name} onPress={() => pick(v)} style={[s.chip, scale !== null && Math.abs(scale - v) < 0.005 && s.on]}>
+                    <Pressable key={name} onPress={() => pick(v)} accessibilityRole="button" accessibilityLabel={`${platform} ${name}`} accessibilityState={{ selected: scale !== null && Math.abs(scale - v) < 0.005 }} style={[s.chip, scale !== null && Math.abs(scale - v) < 0.005 && s.on]}>
                       <Text allowFontScaling={false} style={[s.chipText, scale !== null && Math.abs(scale - v) < 0.005 && s.onText]}>{name}</Text>
                     </Pressable>
                   ))}
                 </View>
               </View>
             ))}
-            <Pressable onPress={() => pick(null)} style={[s.chip, scale === null && s.on, { alignSelf: 'flex-start', marginTop: 6 }]}>
+            <Pressable onPress={() => pick(null)} accessibilityRole="button" accessibilityState={{ selected: scale === null }} style={[s.chip, scale === null && s.on, { alignSelf: 'flex-start', marginTop: 6 }]}>
               <Text allowFontScaling={false} style={[s.chipText, scale === null && s.onText]}>Use the phone's setting</Text>
             </Pressable>
             <Text allowFontScaling={false} style={s.note}>Review tool: remove before release.</Text>
           </ScrollView>
         </View>
       )}
-      <Pressable onPress={() => setOpen(o => !o)} style={s.fab} accessibilityLabel="Text size review" hitSlop={8}>
+      <Pressable onPress={() => setOpen(o => !o)} style={s.fab} accessibilityRole="button" accessibilityLabel="Text size review" accessibilityState={{ expanded: open }} hitSlop={8}>
         <Text allowFontScaling={false} style={s.fabText}>Aa {label}</Text>
       </Pressable>
     </View>

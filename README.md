@@ -1,11 +1,12 @@
 # Design skills
 
-Two Claude skills, meant to be used in this order:
+Three Claude skills, meant to be used in this order:
 
 | Skill | What it does |
 |---|---|
 | [design-system-rollout](#design-system-rollout) | Takes an app from "every screen styled by hand" to one kit, with CI guards that stop it drifting back. |
 | [accessible-scaling](#accessible-scaling) | Makes the app follow the text size people set on their phone or browser, within a readable range, and keeps layouts whole at large sizes. Needs the named text roles the first skill creates. |
+| [accessibility-review](#accessibility-review) | Reviews and fixes the rest of accessibility against WCAG 2.2 AA and the iOS and Android guidelines: contrast and colour, screen readers, keyboard and focus, motion, touch and gestures, forms. |
 
 # design-system-rollout
 
@@ -57,14 +58,14 @@ rm -rf ~/.claude/skills/design-system-rollout
 cp -r /tmp/designsystemskill/skills/design-system-rollout ~/.claude/skills/
 ```
 
-For the second skill, do the same with `accessible-scaling`.
+For the other skills, do the same with `accessible-scaling` or `accessibility-review`.
 
 This replaces only that one skill folder. If `/tmp/designsystemskill` already
 exists, `git -C /tmp/designsystemskill pull` first, or the copy will be stale.
 For one project only, copy it into `<project>/.claude/skills/` instead.
 
 **In the Claude apps**: download `dist/design-system-rollout.skill` (or
-`dist/accessible-scaling.skill`) and open it in a conversation. The file card has a **Save skill** button.
+`dist/accessible-scaling.skill`, `dist/accessibility-review.skill`) and open it in a conversation. The file card has a **Save skill** button.
 
 ## Use
 
@@ -141,9 +142,15 @@ skills/accessible-scaling/
   scripts/       scale table and code generator, audit, tests
   references/    the policy, each platform, layouts at large sizes, testing
   assets/        config template, large-text switch (web), review tool (web, React Native)
+skills/accessibility-review/
+  SKILL.md       the process: the facts, agree the target, fix the kit, fix the screens, test with people's tools, keep it
+  scripts/       code audit (WCAG-mapped), contrast checker, rendered-page check (axe-core), tests
+  references/    the standards and numbers, screen readers, colour, keyboard and touch, motion, forms, testing
+  assets/        config template, review panel (web), announce / reduced-motion helpers, reduced-motion CSS
 dist/
   design-system-rollout.skill
   accessible-scaling.skill
+  accessibility-review.skill
 ```
 
 ## How it was tested
@@ -198,3 +205,50 @@ That run's nine improvements (the CSS import check, spacing at large sizes,
 fewer false marks, the large-text switch, the sideways-scroll check and
 others) are in this version, each with a test that failed before the fix.
 Not yet run end to end on a React Native app.
+
+# accessibility-review
+
+Everything about accessibility apart from text size: whether people who use a
+screen reader, a keyboard, a switch, or a colour filter, or who are made ill
+by motion, can use the app. The target is **WCAG 2.2 AA** plus the iOS and
+Android guidelines. Works on the web (React, Vue, Svelte, HTML), React Native
+and Expo, Flutter, Android and SwiftUI.
+
+| Area | WCAG | What it finds |
+|---|---|---|
+| Contrast and colour | 1.4.1, 1.4.3, 1.4.11 | token pairs below 4.5:1 / 3:1 in every theme, with the nearest passing colour; inline colour pairs; status shown by colour alone |
+| Screen readers | 1.1.1, 1.3.1, 4.1.2, 4.1.3 | controls with no name or role, missing states, images with no alt, messages that aren't announced (including React Native's Android-only live regions) |
+| Keyboard and focus | 2.1.1, 2.4.3, 2.4.7, 2.4.11 | clicks on things that aren't controls, removed focus rings, focus hidden under sticky content |
+| Motion | 2.2.2, 2.3.3 | animation that ignores Reduce Motion (knowing which libraries follow it by default), autoplay |
+| Touch and gestures | 2.5.1, 2.5.7 | swipe and drag with no single-tap alternative |
+| Forms | 1.3.5, 3.3.2, 3.3.8 | fields with no tied label, placeholder-only labels, missing autocomplete, blocked paste on passwords |
+
+```bash
+S=~/.claude/skills/accessibility-review/scripts
+node $S/a11y-audit.mjs                # the code, mapped to WCAG; --init (baseline), --strict (CI)
+node $S/contrast.mjs                  # design-token pairs in every theme; or one pair: '#777' '#fff'
+node $S/a11y-render.mjs               # the running app: axe-core, Tab order, focus, Reduce Motion, reflow, text spacing
+node $S/a11y.test.mjs                 # tests
+```
+
+**What it won't claim.** Automated checks find a minority of real problems. The
+skill says so in every report, includes step-by-step VoiceOver, TalkBack and
+keyboard checks, and never calls an app "accessible" or "compliant" on the
+strength of its scripts.
+
+**How it was built and tested.**
+
+- **Rules taken from the sources:** the WCAG 2.2 criteria and Understanding documents (W3C's own text), Apple's Human Interface Guidelines, Android's accessibility guide, the React Native, Reanimated and Motion documentation, and the axe-core, jsx-a11y and react-native-a11y rule sets.
+- **Tried on two real web apps.** Each finding was checked by hand against the code. Seven kinds of false alarm were fixed, each with a test so it can't come back.
+- **Real problems it caught** that the existing guards didn't:
+  - visible labels not tied to their fields;
+  - icon-only close buttons with no name;
+  - pass/fail messages shown by colour alone;
+  - slide-in animations that ignore Reduce Motion.
+- **Contrast maths** checked against WCAG's own reference values.
+- **The rendered-page check** was run against a page with planted problems, and caught all of them with no false alarms. It refuses to report on a page that rendered nothing.
+- **The review panel** passes axe-core itself.
+- **64 tests.**
+
+Not yet done: a run on a real React Native or Flutter app (the native rules are
+tested on sample code), and a full fix-and-retest cycle on one app.

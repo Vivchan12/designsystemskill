@@ -61,18 +61,18 @@
     button { font: inherit; font-size: 12px; border: 1px solid GrayText; background: ButtonFace; border-radius: 6px; padding: 3px 7px; cursor: pointer; color: ButtonText; }
     button.on { background: CanvasText; color: Canvas; border-color: CanvasText; }
     .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
-    .lab { font-size: 11px; color: GrayText; margin-top: 8px; }
+    .lab { font-size: 11px; font-weight: 600; margin-top: 8px; }   /* full text colour: GrayText is under 4.5:1 */
     input[type=range] { width: 100%; }
     .key { display: grid; grid-template-columns: 12px 1fr auto; gap: 4px 6px; align-items: center; font-size: 12px; margin-top: 8px; }
     .sw { width: 10px; height: 10px; border-radius: 2px; }
-    .note { font-size: 11px; color: GrayText; margin-top: 8px; }
+    .note { font-size: 11px; margin-top: 8px; }
   </style>
   <div class="p">
     <div class="top"><b>Text size review</b><span class="big"></span><button data-act="toggle" title="Alt+T">–</button></div>
     <div class="body">
       <div class="lab">iPhone</div><div class="row" data-group="iPhone"></div>
       <div class="lab">Android</div><div class="row" data-group="Android"></div>
-      <div class="lab">Any size</div><input type="range" min="50" max="320" step="5">
+      <div class="lab">Any size</div><input type="range" min="50" max="320" step="5" aria-label="Text size, percent">
       <div class="row"><button data-act="marks">Mark problems</button><button data-act="check">Re-check</button><button data-act="reset">Reset</button></div>
       <div class="key">
         <span class="sw" style="background:${C.text}"></span><span data-label="text">Text that doesn't grow</span><span data-n="text">–</span>

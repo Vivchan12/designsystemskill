@@ -1,0 +1,35 @@
+{
+  "_about": "Accessibility review settings. Paths are from the project root. Every key is optional.",
+
+  "srcDirs": ["src", "app", "components", "screens"],
+  "exempt": ["node_modules", "dist", "build", "coverage"],
+  "ignore": [],
+
+  "inputComponents": ["Input", "Textarea", "Select", "TextField"],
+  "labelWrappers": ["label", "Field", "FormField", "FormControl"],
+  "iconButtons": ["IconButton"],
+  "controls": [],
+
+  "contrast": {
+    "defaultBackground": "#ffffff",
+    "tokenFiles": ["src/index.css"],
+    "themes": {
+      "light": [":root"],
+      "dark": [".dark", "[data-theme=\"dark\"]", "@media (prefers-color-scheme: dark) :root"]
+    },
+    "pairs": [
+      { "fg": "--text", "bg": "--surface", "use": "text", "why": "body text on the page" },
+      { "fg": "--text-muted", "bg": "--surface", "use": "text", "why": "secondary text, timestamps" },
+      { "fg": "--border-input", "bg": "--surface", "use": "ui", "why": "the edge of a text field" },
+      { "fg": "#ffffff", "bg": "--primary", "use": "text", "why": "label on the main button" }
+    ],
+    "matrix": true
+  },
+
+  "render": {
+    "baseUrl": "http://localhost:5173",
+    "routes": ["/"],
+    "setup": null,
+    "maxTabs": 60
+  }
+}

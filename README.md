@@ -6,7 +6,7 @@ Three Claude skills, meant to be used in this order:
 |---|---|
 | [design-system-rollout](#design-system-rollout) | Takes an app from "every screen styled by hand" to one kit, with CI guards that stop it drifting back. |
 | [accessible-scaling](#accessible-scaling) | Makes the app follow the text size people set on their phone or browser, within a readable range, and keeps layouts whole at large sizes. Needs the named text roles the first skill creates. |
-| [accessibility-review](#accessibility-review) | Reviews and fixes the rest of accessibility against WCAG 2.2 AA and the iOS and Android guidelines: contrast and colour, screen readers, keyboard and focus, motion, touch and gestures, forms. |
+| [accessibility-review](#accessibility-review) **(work in progress)** | Asks first what level you're aiming for, then reviews and fixes the rest of accessibility against WCAG 2.2 AA and the iOS and Android guidelines: contrast and colour, screen readers, keyboard and focus, motion, touch and gestures, forms. |
 
 # design-system-rollout
 
@@ -208,11 +208,30 @@ Not yet run end to end on a React Native app.
 
 # accessibility-review
 
+> **Work in progress.** Built from the standards and tried on two web apps, but
+> not yet run end to end on a real project, and the React Native, Flutter,
+> Android and SwiftUI rules are tested on sample code only. Expect some false
+> alarms; please report them.
+
 Everything about accessibility apart from text size: whether people who use a
 screen reader, a keyboard, a switch, or a colour filter, or who are made ill
 by motion, can use the app. The target is **WCAG 2.2 AA** plus the iOS and
 Android guidelines. Works on the web (React, Vue, Svelte, HTML), React Native
 and Expo, Flutter, Android and SwiftUI.
+
+**It asks before it starts.** The skill first asks the owner a few questions
+and records the answers in `a11y.config.json` → `target`:
+- which level they're aiming for (WCAG 2.2 A, AA, AA plus chosen AAA items, or AAA);
+- why now (a legal requirement, a customer's request, or quality);
+- which apps, platforms and main flows are in scope;
+- who the users are;
+- which areas to cover;
+- how far to go (a report only, fixing the kit, or fixing everything and gating CI);
+- whether the app can run locally with sample data.
+
+The audit then reports only what is inside the chosen target, and says what
+the target is at the top of every report. The default, if nobody chooses, is
+WCAG 2.2 AA plus 2.3.3 Reduce Motion.
 
 | Area | WCAG | What it finds |
 |---|---|---|
@@ -248,7 +267,7 @@ strength of its scripts.
 - **Contrast maths** checked against WCAG's own reference values.
 - **The rendered-page check** was run against a page with planted problems, and caught all of them with no false alarms. It refuses to report on a page that rendered nothing.
 - **The review panel** passes axe-core itself.
-- **64 tests.**
+- **69 tests.**
 
 Not yet done: a run on a real React Native or Flutter app (the native rules are
 tested on sample code), and a full fix-and-retest cycle on one app.

@@ -226,6 +226,17 @@ const wt = withTool.run('a11y-audit.mjs', '--strict');
 check('the review panel: its own file is not audited; where it loads is listed; dev-only passes --strict', wt.code === 0 && /Review panel still installed/.test(wt.out) && /src\/main\.tsx:1` \(development only\)/.test(wt.out) && !/dev\/a11y-preview\.js:/.test(wt.out.split('Review panel')[0]), wt.out);
 const shipped = project({ 'package.json': {}, 'src/main.tsx': "import './dev/a11y-preview.js';\n" }).run('a11y-audit.mjs', '--strict');
 check('the review panel loaded without a development check fails --strict', shipped.code === 1 && /would ship/.test(shipped.out), shipped.out);
+// The owner's target decides what is reported.
+const tgtFiles = { 'package.json': {}, 'src/A.jsx': 'export const A = () => (<div><div onClick={x}>Open</div><input className="outline-none" aria-label="Search" /></div>);\n', 'src/a.css': '@keyframes slideIn { from { transform: translateY(10px) } }\n' };
+const lvA = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'A', alsoInclude: [] } } }).audit();
+check('target A: level-A rules reported (2.1.1), AA rules not (2.4.7 focus), AAA not (2.3.3)', at(lvA, 'web-click-div').length === 1 && !at(lvA, 'focus-removed').length && !at(lvA, 'motion-no-reduce').length, JSON.stringify(lvA.counts));
+const lvAA = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'AA', alsoInclude: [] } } }).audit();
+check('target AA without extras: focus reported, Reduce Motion (AAA) not', at(lvAA, 'focus-removed').length === 1 && !at(lvAA, 'motion-no-reduce').length);
+const lvDefault = project(tgtFiles).audit();
+check('no target set: AA plus 2.3.3 (Reduce Motion), the recommended default', at(lvDefault, 'focus-removed').length === 1 && at(lvDefault, 'motion-no-reduce').length === 1);
+const areas = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'AA', areas: ['Motion'] } } }).audit();
+check('target areas: only the chosen areas are reported', !at(areas, 'web-click-div').length && at(areas, 'motion-no-reduce').length === 1);
+check('the report states the target and that the skill is a work in progress', /Target: WCAG 2\.2 AA plus 2\.3\.3/.test(project(tgtFiles).run('a11y-audit.mjs').out) && /work in progress/.test(project(tgtFiles).run('a11y-audit.mjs').out));
 const clean = project({ 'package.json': {}, 'src/A.jsx': 'export const A = () => <button>Save</button>;\n' });
 check('a clean project says code can\'t prove accessibility', /That is not the same as accessible/.test(clean.run('a11y-audit.mjs').out));
 

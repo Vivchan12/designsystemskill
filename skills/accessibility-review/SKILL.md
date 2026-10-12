@@ -1,9 +1,16 @@
 ---
 name: accessibility-review
-description: Review and fix an app's accessibility against WCAG 2.2 AA and the iOS and Android platform guidelines, for any web, React Native, Expo, Flutter, Android or SwiftUI project. Covers contrast and colour-only status, screen readers (names, roles, states, announcements), keyboard and focus, motion and Reduce Motion, touch targets and gestures, and forms. Runs a code audit mapped to WCAG criteria, a contrast checker for design tokens in every theme, a rendered-page check with axe-core (keyboard, focus, reflow, Reduce Motion), and a development-only review panel; then fixes things in the component kit first and adds a CI ratchet so they stay fixed. Use this whenever someone mentions accessibility, a11y, WCAG, ADA or the European Accessibility Act, screen readers, VoiceOver or TalkBack, colour contrast, colour blindness, keyboard navigation, focus, Reduce Motion, or "make the app accessible". Pairs with accessible-scaling (text size) and design-system-rollout (the kit).
+description: (Work in progress) Review and fix an app's accessibility against WCAG 2.2 AA and the iOS and Android platform guidelines, for any web, React Native, Expo, Flutter, Android or SwiftUI project. Covers contrast and colour-only status, screen readers (names, roles, states, announcements), keyboard and focus, motion and Reduce Motion, touch targets and gestures, and forms. Runs a code audit mapped to WCAG criteria, a contrast checker for design tokens in every theme, a rendered-page check with axe-core (keyboard, focus, reflow, Reduce Motion), and a development-only review panel; then fixes things in the component kit first and adds a CI ratchet so they stay fixed. Use this whenever someone mentions accessibility, a11y, WCAG, ADA or the European Accessibility Act, screen readers, VoiceOver or TalkBack, colour contrast, colour blindness, keyboard navigation, focus, Reduce Motion, or "make the app accessible". Pairs with accessible-scaling (text size) and design-system-rollout (the kit).
 ---
 
 # Accessibility review
+
+> **Status: work in progress.** The rules come from WCAG 2.2, Apple's and
+> Android's guidelines and the platform docs, and were tried on two web apps.
+> The React Native, Flutter, Android and SwiftUI rules are tested on sample
+> code only. Expect some false alarms and gaps: tell the owner this at the
+> start, check findings against the code before acting on them, and note any
+> wrong ones so the skill can be fixed.
 
 Accessibility is whether someone who can't see the screen well, can't use a
 mouse or a touchscreen precisely, can't tell red from green, or gets dizzy
@@ -19,6 +26,33 @@ This skill finds what can be found automatically, fixes it where it lives
 
 **Never call an app "accessible" or "WCAG compliant" on the strength of these
 scripts.** Say what was checked, how, and what wasn't.
+
+## Before anything: ask
+
+Ask the owner these before running anything (at most four at a time, with a
+recommended answer first, so they can just confirm). Write the answers into
+`a11y.config.json` → `target` and into `docs/accessibility.md`. On a later
+session, read them back instead of asking again.
+
+1. **Which level?** This sets what is reported and what "done" means.
+   - **WCAG 2.2 AA** (recommended): the level the law and most contracts refer to.
+   - **AA plus chosen AAA items**: usually 2.3.3 Reduce Motion (cheap; Apple expects it), sometimes 2.5.5 44px targets. This is the default if they don't choose.
+   - **A only**: the bare minimum; only as a first step on a large old app.
+   - **AAA throughout**: rarely possible for a whole app (W3C itself doesn't recommend requiring it); offer it for specific flows instead.
+2. **Why now?** A legal requirement (the European Accessibility Act, ADA, Section 508, public sector), a customer asking for a conformance report (VPAT / ACR), or quality. A legal or contractual reason means an expert audit and testing with disabled users at the end, not just this skill: say so.
+3. **What's in scope?** Which apps and platforms (web, iOS, Android), and the main flows (sign in, the thing people open the app for, the most common form). Start with those.
+4. **Who are the users?** Anything known (older users, low vision, people using it with gloves, in bright light or noise, with one hand) moves areas up the order.
+5. **Which areas?** All six (contrast and colour, screen readers, forms, keyboard and focus, motion, touch and gestures), or some first.
+6. **How far?** A report only; fix the kit; or fix everything and gate CI.
+7. **Can the app run locally with sample data?** Needed for the rendered-page check and the review panel. Never real users' data.
+
+```json
+"target": { "level": "AA", "alsoInclude": ["2.3.3"], "areas": "all" }
+```
+
+`a11y-audit.mjs` reports only what is inside the target (a rule's lowest level
+counts; anything listed in `alsoInclude` always counts; `areas` can be a list),
+and states the target at the top of every report.
 
 ## Every session starts with the facts
 
@@ -50,7 +84,11 @@ Copy the whole `scripts/` folder into a project if it runs them in CI:
 
 **Exit:** the owner has the report and has seen or heard one flow with a screen reader.
 
-### Phase 1: Agree the target (≈10 min of the owner's time)
+### Phase 1: Confirm the target (≈10 min of the owner's time)
+
+Go back over the answers from "Before anything: ask" now that the owner has
+seen the findings: the level, the areas and the scope sometimes change once
+they see what's there.
 
 - The level: **WCAG 2.2 AA** (the legal reference in most places: the European Accessibility Act, ADA cases, Section 508), plus the platform guidelines for native apps (44pt targets on iOS, 48dp on Android, Reduce Motion).
 - Which AAA items to adopt anyway. Recommend 2.3.3 Animation from Interactions: Apple's guidelines expect it, and it is cheap.

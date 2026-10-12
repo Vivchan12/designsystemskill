@@ -32,6 +32,9 @@ const cfg = existsSync(cfgFile) ? JSON.parse(readFileSync(cfgFile, 'utf8')) : {}
 const srcDirs = (cfg.srcDirs ?? ['src', 'app', 'components', 'screens', 'lib', 'pages', 'ios', 'android']).filter(d => existsSync(join(ROOT, d)));
 const exempt = cfg.exempt ?? ['node_modules', 'dist', 'build', 'Pods', '.gradle', '.next', 'coverage', 'web-build', '.expo'];
 const ignore = new Set(cfg.ignore ?? []);
+// The target the owner chose (SKILL.md, "Before anything: ask"). Default: WCAG 2.2 AA, plus 2.3.3 (Reduce Motion).
+const target = { level: 'AA', alsoInclude: ['2.3.3'], areas: 'all', ...cfg.target };
+const RANK = { A: 1, AA: 2, AAA: 3 };
 const defaultBg = cfg.contrast?.defaultBackground ?? '#ffffff';
 const args = process.argv.slice(2);
 const EXT = ['.tsx', '.jsx', '.ts', '.js', '.mjs', '.vue', '.svelte', '.html', '.css', '.scss', '.dart', '.swift', '.kt', '.xml'];
@@ -155,7 +158,15 @@ const R = {
 };
 
 const findings = [];
-const add = (rule, f, line, detail) => { if (ignore.has(rule) || (f && line && exemptAt(f, line))) return; findings.push({ rule, at: f ? `${f.rel}${line ? ':' + line : ''}` : '(project)', detail }); };
+/** Is this rule inside the chosen target? Its lowest level counts (a rule for "A / AA" applies at A); a criterion listed in alsoInclude always counts. */
+function inTarget(rule) {
+  const [area, wcag, level] = R[rule];
+  if (target.areas !== 'all' && Array.isArray(target.areas) && !target.areas.includes(area)) return false;
+  if ((target.alsoInclude ?? []).some(c => wcag.includes(c))) return true;
+  const lowest = Math.min(...level.split(/\s*\/\s*/).map(l => RANK[l.trim()] ?? 3));
+  return lowest <= (RANK[target.level] ?? 2);
+}
+const add = (rule, f, line, detail) => { if (ignore.has(rule) || !inTarget(rule) || (f && line && exemptAt(f, line))) return; findings.push({ rule, at: f ? `${f.rel}${line ? ':' + line : ''}` : '(project)', detail }); };
 const RN_TOUCH = 'Pressable|TouchableOpacity|TouchableHighlight|TouchableWithoutFeedback|TouchableNativeFeedback';
 const extraControls = (cfg.controls ?? []).join('|');
 // Kit inputs used on screens (web): checked like <input>. A wrapper that renders the label counts.
@@ -400,7 +411,7 @@ const baseline = existsSync(baseFile) ? JSON.parse(readFileSync(baseFile, 'utf8'
 
 if (args.includes('--json')) { console.log(JSON.stringify({ files: files.length, findings: findings.map(x => ({ ...x, area: R[x.rule][0], wcag: R[x.rule][1], level: R[x.rule][2], kind: R[x.rule][3] })), counts, tools }, null, 2)); process.exit(0); }
 
-const L = ['# Accessibility audit', '', `${files.length} files${srcDirs.length ? ' in ' + srcDirs.join(', ') : ' (no source folders found: set srcDirs in a11y.config.json)'}. Mapped to WCAG 2.2. **fails**: a pattern that fails wherever it appears. **check**: often fails; a person decides.`, ''];
+const L = ['# Accessibility audit', '', `Target: WCAG 2.2 ${target.level}${(target.alsoInclude ?? []).length ? ` plus ${target.alsoInclude.join(', ')}` : ''}${Array.isArray(target.areas) ? `; areas: ${target.areas.join(', ')}` : ''} (a11y.config.json "target"). This skill is a work in progress: report false alarms.`, '', `${files.length} files${srcDirs.length ? ' in ' + srcDirs.join(', ') : ' (no source folders found: set srcDirs in a11y.config.json)'}. Mapped to WCAG 2.2. **fails**: a pattern that fails wherever it appears. **check**: often fails; a person decides.`, ''];
 const AREAS = ['Contrast and colour', 'Screen readers', 'Forms', 'Keyboard and focus', 'Motion', 'Touch and gestures'];
 if (!findings.length) L.push('Nothing found in the code. That is not the same as accessible: do the checks in references/testing.md with a screen reader and a keyboard.', '');
 for (const area of AREAS) {

@@ -198,6 +198,14 @@ node $S/text-scale.test.mjs [config]         # tests; from a project copy, check
 
 - `large-text.js` (web, part of the app): sets `data-text-scale="large"` at 150% and above, for a `large-text:` Tailwind variant.
 - `text-scale-preview.js` and `TextScalePreview.tsx`: a **review tool**, development only. A panel of every iPhone and Android text size that re-renders the app at each one, and on the web marks text that doesn't grow, icons that don't grow, text cut off, shapes stretched, and anything that pushes the page sideways. The audit lists where it's loaded, and `--strict` fails if it would ship. Delete it when the review is done.
+  On the web it can be driven by a script: `window.textScalePreview.set(2)`, `await textScalePreview.settled()`, `textScalePreview.findings()`. It asks for each size the way the browser does, through the app's own floor and ceiling, and dims the phone settings past the ceiling.
+
+**Agent:** `agents/text-size-reviewer.md` is a Claude Code agent that runs the review tool on a live web app for you: it puts the panel in the app's served folder for the session only (never committed), opens the app, checks the screens you name at Android Small, 100%, 150%, 200% and iPhone AX5, at phone and desktop width, and reports each problem with the element and the fix, then removes the panel. Ask Claude "review the app at large text" or "show me the text sizer". Install it once for every project:
+
+```bash
+mkdir -p ~/.claude/agents
+cp /tmp/designsystemskill/skills/accessible-scaling/agents/text-size-reviewer.md ~/.claude/agents/
+```
 
 **How it was tested.** On one real web app, through a full pass: the review
 tool caught icons left at a fixed size that three guards and the build missed.

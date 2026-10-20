@@ -12,6 +12,7 @@
  *   purple  text that is cut off (clipped, or truncated with "…")
  *   blue    logos, avatars and badges stretched out of shape by the text beside them
  *   teal    what pushes the page sideways (the page scrolls horizontally)
+ *   (settings past the policy's ceiling are dimmed: the app holds there)
  *
  * A deliberate clamp (a one-line preview, a teaser) is not "cut off": mark it
  * data-text-clamp. The panel uses system colours only, so a project's token
@@ -62,6 +63,7 @@
     button.on { background: CanvasText; color: Canvas; border-color: CanvasText; }
     .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
     .lab { font-size: 11px; font-weight: 600; margin-top: 8px; }   /* full text colour: GrayText is under 4.5:1 */
+    button[data-beyond] { opacity: .55; border-style: dashed; }
     input[type=range] { width: 100%; }
     .key { display: grid; grid-template-columns: 12px 1fr auto; gap: 4px 6px; align-items: center; font-size: 12px; margin-top: 8px; }
     .sw { width: 10px; height: 10px; border-radius: 2px; }
@@ -85,9 +87,13 @@
     </div>
   </div>`;
   const $ = (s) => shadow.querySelector(s);
+  // Settings past the policy's ceiling (--text-scale-ceiling, from the generated CSS) stay
+  // selectable, dimmed: picking one shows that the app holds at the ceiling.
+  const ceiling = parseFloat(getComputedStyle(root).getPropertyValue('--text-scale-ceiling')) || 2;
   for (const [platform, name, scale] of SETTINGS) {
     const b = document.createElement('button');
     b.textContent = name; b.dataset.scale = String(scale); b.title = `${platform} ${name}: ${Math.round(scale * 100)}%`;
+    if (scale > ceiling + 0.001) { b.dataset.beyond = ''; b.title += ` (past the ${Math.round(ceiling * 100)}% ceiling: the app holds there)`; }
     $(`[data-group="${platform}"]`).append(b);
   }
 
@@ -112,7 +118,14 @@
     text: new Map(textEls().filter(visible).map(el => [el, parseFloat(getComputedStyle(el).fontSize)])),
     icon: new Map(iconEls().map(el => [el, el.getBoundingClientRect().width])),
   });
-  const setRoot = (s) => { root.style.fontSize = s === 1 && !originalRoot ? '' : `${s * 100}%`; };
+  // Ask for the setting the way a browser would: through --browser-text, which the
+  // generated CSS clamps on <html>, so the app's floor and ceiling apply as they do for a
+  // user. Before that CSS exists, set the root size directly.
+  const hasClamp = () => getComputedStyle(root).getPropertyValue('--text-scale-ceiling').trim() !== '';
+  const setRoot = (s) => {
+    if (hasClamp()) { if (s === 1) root.style.removeProperty('--browser-text'); else root.style.setProperty('--browser-text', `${s * 100}%`); }
+    else root.style.fontSize = s === 1 && !originalRoot ? '' : `${s * 100}%`;
+  };
 
   let marked = [];
   const clearMarks = () => { for (const { el, outline, offset, title } of marked) { el.style.outline = outline; el.style.outlineOffset = offset; if (title === null) el.removeAttribute('title'); else el.title = title; } marked = []; };
@@ -213,7 +226,20 @@
     clearTimeout(t); t = setTimeout(check, 400);
   }).observe(document.body, { childList: true, subtree: true, characterData: true });
 
-  window.textScalePreview = { set: (s) => { state.scale = s; apply(); }, check, settings: SETTINGS };
+  // For an agent or a script driving the review: set a size, wait, read what is marked.
+  //   textScalePreview.set(2); await textScalePreview.settled(); textScalePreview.findings()
+  const describe = (el) => {
+    const t = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('alt') || '').replace(/\s+/g, ' ').trim();
+    return `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).slice(0, 3).join('.') : ''}${t ? ` "${t.slice(0, 60)}"` : ''}`;
+  };
+  window.textScalePreview = {
+    set: (s) => { state.scale = s; apply(); },
+    check,
+    settled: () => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => ok(check()), 450)))),
+    findings: () => marked.map(({ el }) => ({ element: describe(el), note: el.title.replace('[text size review] ', '') })),
+    ceiling: () => ceiling,
+    settings: SETTINGS,
+  };
   const mount = () => { document.body.append(host); apply(); };
   document.body ? mount() : document.addEventListener('DOMContentLoaded', mount);
 })();

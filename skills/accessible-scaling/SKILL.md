@@ -35,7 +35,7 @@ is remembered between sessions; everything is read from the repo.
 
 1. Find the text roles: the design system's type scale (tokens, a `Text` component's variants). Write them into `text-scale.config.json` (template: `assets/text-scale.config.json`), with each role's size and line height at the default setting.
 2. Run `node <skill>/scripts/text-scale-audit.mjs`. It reports where scaling is **blocked** (switched off, sizes in units that don't scale, zoom disabled) and where it **breaks** layouts (fixed heights around text, one-line truncation, text shrunk to fit, icons at a fixed size). It covers React Native, web, iOS, Android and Flutter.
-3. Look at the main screen at the largest setting. The quickest way is the **review tool** (`references/testing.md`): a development-only panel that switches the app between every iPhone and Android text size, and on the web marks text that doesn't grow, icons that don't grow, text cut off and shapes stretched. One screenshot usually makes the case better than the report.
+3. Look at the main screen at the largest setting. The quickest way is the **review tool** (`references/testing.md`): a development-only panel that switches the app between every iPhone and Android text size, and on the web marks text that doesn't grow, icons that don't grow, text cut off and shapes stretched. One screenshot usually makes the case better than the report. On the web, the **text-size-reviewer** agent (`agents/text-size-reviewer.md`) does this for you: it loads the panel into the running app for the session only, walks the screens at the sizes that matter, and reports what breaks.
 4. Tell the owner: how many places block the setting, the worst screens at large sizes, and whether text roles exist yet.
 
 **Exit:** the owner has seen the audit and one screen at the largest size.
@@ -101,4 +101,5 @@ Fix the components first (rows, buttons, cards, list items), so the screens buil
 | `assets/text-scale.config.json` | Phase 0 |
 | `assets/large-text.js` | Phase 2–3 (web): the large-text switch; part of the app |
 | `assets/text-scale-preview.js`, `assets/TextScalePreview.tsx` | The review tool (web, React Native): Phases 0 and 3, removed in Phase 4 |
+| `agents/text-size-reviewer.md` | A Claude Code agent that runs the web review tool on a live app without changing it: Phases 0 and 3. Install it in `~/.claude/agents/` |
 | `scripts/text-scale.test.mjs` | After changing a script. Also runs from a copy in a project: `node text-scale.test.mjs [path/to/text-scale.config.json]` checks the project's own policy |

@@ -29,30 +29,36 @@ scripts.** Say what was checked, how, and what wasn't.
 
 ## Before anything: ask
 
-Ask the owner these before running anything (at most four at a time, with a
-recommended answer first, so they can just confirm). Write the answers into
+Ask the owner four questions before running anything, each with a
+recommended answer so they can just confirm. Write the answers into
 `a11y.config.json` → `target` and into `docs/accessibility.md`. On a later
 session, read them back instead of asking again.
 
-1. **Which level?** This sets what is reported and what "done" means.
-   - **WCAG 2.2 AA** (recommended): the level the law and most contracts refer to.
-   - **AA plus chosen AAA items**: usually 2.3.3 Reduce Motion (cheap; Apple expects it), sometimes 2.5.5 44px targets. This is the default if they don't choose.
-   - **A only**: the bare minimum; only as a first step on a large old app.
-   - **AAA throughout**: rarely possible for a whole app (W3C itself doesn't recommend requiring it); offer it for specific flows instead.
+1. **Which level?** Start from **WCAG 2.2 AA** unless the owner names another: it is what the law and most contracts refer to. Say so, and offer the alternatives only as options:
+   - AA plus chosen AAA items, for example 2.3.3 Reduce Motion (cheap, and Apple expects it) or 2.5.5 44px targets;
+   - A only, as a first step on a large old app;
+   - AAA, for specific flows rather than the whole app (W3C advises against requiring AAA for entire sites, because some content can't meet it).
 2. **Why now?** A legal requirement (the European Accessibility Act, ADA, Section 508, public sector), a customer asking for a conformance report (VPAT / ACR), or quality. A legal or contractual reason means an expert audit and testing with disabled users at the end, not just this skill: say so.
-3. **What's in scope?** Which apps and platforms (web, iOS, Android), and the main flows (sign in, the thing people open the app for, the most common form). Start with those.
+3. **What's in scope?** Which apps and platforms (web, iOS, Android); the main flows to start with (sign in, the thing people open the app for, the most common form); and which areas: all six (contrast and colour, screen readers, forms, keyboard and focus, motion, touch and gestures), or some first.
 4. **Who are the users?** Anything known (older users, low vision, people using it with gloves, in bright light or noise, with one hand) moves areas up the order.
-5. **Which areas?** All six (contrast and colour, screen readers, forms, keyboard and focus, motion, touch and gestures), or some first.
-6. **How far?** A report only; fix the kit; or fix everything and gate CI.
-7. **Can the app run locally with sample data?** Needed for the rendered-page check and the review panel. Never real users' data.
 
 ```json
-"target": { "level": "AA", "alsoInclude": ["2.3.3"], "areas": "all" }
+"target": { "level": "AA", "alsoInclude": [], "areas": "all" }
 ```
 
 `a11y-audit.mjs` reports only what is inside the target (a rule's lowest level
 counts; anything listed in `alsoInclude` always counts; `areas` can be a list),
 and states the target at the top of every report.
+
+**Start with the report, then ask about each next step.** The first
+deliverable is always a report (Phase 0); nothing is changed before it. After
+the owner has seen it, ask whether to fix the components (Phase 2); after the
+kit, whether to carry on to the screens (Phase 3); and at the end, whether to
+gate CI (Phase 5). One question at each step, with what it involves, so the
+owner decides with the findings in front of them.
+
+Ask only when it's needed whether the app can run locally with sample data
+(Phase 0 step 4): the rendered-page check and the review panel need it.
 
 ## Every session starts with the facts
 
@@ -78,11 +84,12 @@ Copy the whole `scripts/` folder into a project if it runs them in CI:
 1. Copy `assets/a11y.config.json` to the project root. Set `srcDirs`, the kit's input and icon-button names, and `contrast.tokenFiles` / `themes`.
 2. Run `a11y-audit.mjs`. It reports by area (contrast and colour, screen readers, forms, keyboard and focus, motion, touch) with the WCAG criterion, **fails** (a failure wherever it appears) or **check** (a person decides), and the files.
 3. Run `contrast.mjs`. Declare the pairs the app really uses (`pairs`): body text, muted text, input borders, the main button's label, in every theme.
-4. If the app runs locally, run `a11y-render.mjs` on the main routes, with sample data only. Install `axe-core` as a dev dependency if it isn't: it is the standard rule engine and adds about 60 rules.
+4. If the app can run locally with sample data (ask), run `a11y-render.mjs` on the main routes, with sample data only. Install `axe-core` as a dev dependency if it isn't: it is the standard rule engine and adds about 60 rules.
 5. Do one main flow by keyboard, and one with VoiceOver or TalkBack (`references/testing.md`, 10 minutes each). This finds what the scripts can't, and makes the case better than any report.
-6. Tell the owner: counts per area, the five worst problems with where they are, and what the scripts can't judge.
+6. Write the report into `docs/accessibility.md` and tell the owner: the target it was checked against, counts per area, the five worst problems with where they are, and what the scripts can't judge.
+7. **Ask** whether to go on to fixing, starting with the components (Phase 2). Stop here if they want the report only.
 
-**Exit:** the owner has the report and has seen or heard one flow with a screen reader.
+**Exit:** the owner has the report, has seen or heard one flow with a screen reader, and has said whether to fix.
 
 ### Phase 1: Confirm the target (≈10 min of the owner's time)
 
@@ -91,7 +98,7 @@ seen the findings: the level, the areas and the scope sometimes change once
 they see what's there.
 
 - The level: **WCAG 2.2 AA** (the legal reference in most places: the European Accessibility Act, ADA cases, Section 508), plus the platform guidelines for native apps (44pt targets on iOS, 48dp on Android, Reduce Motion).
-- Which AAA items to adopt anyway. Recommend 2.3.3 Animation from Interactions: Apple's guidelines expect it, and it is cheap.
+- Whether to add any AAA items now that the findings are known. Suggest 2.3.3 Animation from Interactions if the app has much motion: Apple's guidelines expect it, and it is cheap.
 - The contrast pairs (Phase 0 step 3), signed off like any design decision.
 - For an existing app, a baseline: `a11y-audit.mjs --init` records today's counts. CI then fails only if a **fails** rule grows, and the numbers only go down.
 
@@ -116,7 +123,7 @@ Most failures repeat because the kit allows them. Fix the components, and every 
 
 The details per area are in the references. Fix the kit, then run the audit again: many screen findings disappear.
 
-**Exit:** the kit components meet the table; the audit's counts dropped.
+**Exit:** the kit components meet the table; the audit's counts dropped. **Ask** whether to go on to the screens.
 
 ### Phase 3: Fix the screens, area by area
 
@@ -142,6 +149,8 @@ The review panel (`assets/a11y-preview.js`, web, development only) shows on the 
 **Exit:** the main flows done start to finish with a screen reader and with a keyboard, and the results written into `docs/accessibility.md`.
 
 ### Phase 5: Keep it
+
+**Ask** first whether to gate CI, and explain what it means: a pull request that adds a new failure is blocked.
 
 - CI: `a11y-audit.mjs --strict` (fails if a **fails** rule grows past the baseline, or the review panel would ship) and `contrast.mjs --strict` (fails if a declared pair fails). `a11y-render.mjs --strict` too, if CI can run the app.
 - The established lint rules in the editor: `eslint-plugin-jsx-a11y` (React web), `eslint-plugin-react-native-a11y`. The audit's "Tools" section says which are missing.

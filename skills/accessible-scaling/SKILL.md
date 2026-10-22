@@ -52,7 +52,7 @@ is remembered between sessions; everything is read from the repo.
 
 1. Generate the code: `scale-table.mjs --emit ts` (React Native) or `--emit css` (web, with `--prefix <yours>` if the design system has a token prefix). For iOS, Android and Flutter, `references/platforms.md` shows the equivalent. Generated, not hand-copied, so the table and the app can't drift.
    - **Web: `@import` the generated CSS from the entry CSS.** Tailwind reading it is not loading it: without the import every `var()` is silently undefined, and the build still passes. The audit checks this.
-   - **Web: add the large-text switch** (`assets/large-text.js`) and its `large-text:` variant, for Phase 3.
+   - **Web: add the large-text switch** (`assets/large-text.js`) and its `large-text:` variant, for Phase 3. In a server-rendered app (Next.js, Remix, Nuxt, SvelteKit) run it synchronously in `<head>`, or large-text users see the normal layout flash first (`references/layout.md`).
 2. The kit's text components (and text inputs) use it. On React Native they apply the scale themselves and switch system scaling off **only there**. They re-render when the setting changes.
 3. Screens use the kit's text components. Any screen that sets its own font size or switches scaling off is a finding (Phase 4 makes it fail CI).
 

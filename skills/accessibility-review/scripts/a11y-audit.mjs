@@ -32,8 +32,8 @@ const cfg = existsSync(cfgFile) ? JSON.parse(readFileSync(cfgFile, 'utf8')) : {}
 const srcDirs = (cfg.srcDirs ?? ['src', 'app', 'components', 'screens', 'lib', 'pages', 'ios', 'android']).filter(d => existsSync(join(ROOT, d)));
 const exempt = cfg.exempt ?? ['node_modules', 'dist', 'build', 'Pods', '.gradle', '.next', 'coverage', 'web-build', '.expo'];
 const ignore = new Set(cfg.ignore ?? []);
-// The target the owner chose (SKILL.md, "Before anything: ask"). Default: WCAG 2.2 AA, plus 2.3.3 (Reduce Motion).
-const target = { level: 'AA', alsoInclude: ['2.3.3'], areas: 'all', ...cfg.target };
+// The target the owner chose (SKILL.md, "Before anything: ask"). Default: WCAG 2.2 AA.
+const target = { level: 'AA', alsoInclude: [], areas: 'all', ...cfg.target };
 const RANK = { A: 1, AA: 2, AAA: 3 };
 const defaultBg = cfg.contrast?.defaultBackground ?? '#ffffff';
 const args = process.argv.slice(2);

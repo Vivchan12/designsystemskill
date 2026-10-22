@@ -1,0 +1,26 @@
+{
+  "name": "design-skills",
+  "private": true,
+  "description": "Claude skills for design systems and accessibility: design-system-rollout, accessible-scaling, accessibility-review. Not a library: this file pins the tools the skills' scripts use and runs their tests.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "npm run test:rollout && npm run test:scaling && npm run test:a11y",
+    "test:rollout": "node skills/design-system-rollout/scripts/export-tokens.test.mjs && node skills/design-system-rollout/scripts/native.test.mjs && node skills/design-system-rollout/scripts/web.test.mjs",
+    "test:scaling": "node skills/accessible-scaling/scripts/text-scale.test.mjs",
+    "test:a11y": "node skills/accessibility-review/scripts/a11y.test.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.14.0",
+    "playwright-core": "^1.64.1",
+    "typescript": "^5.9.3"
+  },
+  "x-tool-notes": {
+    "playwright-core": "Render audits and captures (design-system-rollout audit-render.mjs, accessibility-review a11y-render.mjs). Brings no browser: set PLAYWRIGHT_BROWSERS_PATH or CHROMIUM_PATH, or run `npx playwright install chromium`.",
+    "axe-core": "The rule engine a11y-render.mjs and the accessibility review panel use when it is installed in the project being checked.",
+    "typescript": "Only for reading a TypeScript design-tokens file on Node older than 22.13; newer Node strips types itself. Kept on 5.x: the scripts use its transpileModule API.",
+    "node": "18 or later. Node 22.13+ reads TypeScript token files without the typescript package."
+  }
+}

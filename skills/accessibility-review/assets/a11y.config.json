@@ -1,7 +1,7 @@
 {
   "_about": "Accessibility review settings. Paths are from the project root. Every key is optional.",
 
-  "target": { "level": "AA", "alsoInclude": ["2.3.3"], "areas": "all", "why": "", "users": "", "flows": [] },
+  "target": { "level": "AA", "alsoInclude": [], "areas": "all", "why": "", "users": "", "flows": [] },
 
   "srcDirs": ["src", "app", "components", "screens"],
   "exempt": ["node_modules", "dist", "build", "coverage"],

@@ -129,9 +129,31 @@ commit so everyone on a team runs the same version, and update deliberately.
 **No secrets in config.** The config holds paths and names only. Never put
 keys or real user data in it, or in the sample-data script.
 
+## Tools, Node version and tests
+
+The skills' scripts are plain Node with no dependencies of their own. The root
+`package.json` pins the few tools some of them use, so a team runs the same
+versions:
+
+| Tool | Version | Used by |
+|---|---|---|
+| Node | 18 or later (22.13+ reads TypeScript token files by itself) | everything |
+| `playwright-core` | ^1.64 | the render audits and captures; it brings no browser: set `PLAYWRIGHT_BROWSERS_PATH` or `CHROMIUM_PATH`, or `npx playwright install chromium` |
+| `axe-core` | ^4.14 | accessibility-review's rendered-page check and review panel |
+| `typescript` | ^5.9 | only to read a TypeScript tokens file on Node older than 22.13 |
+
+```bash
+npm install
+npm test                 # every skill's tests; or npm run test:rollout / test:scaling / test:a11y
+```
+
+In a project, install `playwright-core` and `axe-core` as dev dependencies of
+that project: the scripts look for them there.
+
 ## What's in here
 
 ```
+package.json     the tools' versions, the Node version, npm test
 skills/design-system-rollout/
   SKILL.md       the process: phases, exit checks, how to work with the owner
   scripts/       status, inventory, guards, render audit, token export, kit bundle, design sync, tests
@@ -196,7 +218,7 @@ node $S/text-scale.test.mjs [config]         # tests; from a project copy, check
 
 **Assets:**
 
-- `large-text.js` (web, part of the app): sets `data-text-scale="large"` at 150% and above, for a `large-text:` Tailwind variant.
+- `large-text.js` (web, part of the app): sets `data-text-scale="large"` at 150% and above, for a `large-text:` Tailwind variant. In a server-rendered app (Next.js and others) it runs synchronously in `<head>`, so large-text users don't see the normal layout flash first.
 - `text-scale-preview.js` and `TextScalePreview.tsx`: a **review tool**, development only. A panel of every iPhone and Android text size that re-renders the app at each one, and on the web marks text that doesn't grow, icons that don't grow, text cut off, shapes stretched, and anything that pushes the page sideways. The audit lists where it's loaded, and `--strict` fails if it would ship. Delete it when the review is done.
   On the web it can be driven by a script: `window.textScalePreview.set(2)`, `await textScalePreview.settled()`, `textScalePreview.findings()`. It asks for each size the way the browser does, through the app's own floor and ceiling, and dims the phone settings past the ceiling.
 
@@ -227,19 +249,18 @@ by motion, can use the app. The target is **WCAG 2.2 AA** plus the iOS and
 Android guidelines. Works on the web (React, Vue, Svelte, HTML), React Native
 and Expo, Flutter, Android and SwiftUI.
 
-**It asks before it starts.** The skill first asks the owner a few questions
-and records the answers in `a11y.config.json` → `target`:
-- which level they're aiming for (WCAG 2.2 A, AA, AA plus chosen AAA items, or AAA);
-- why now (a legal requirement, a customer's request, or quality);
-- which apps, platforms and main flows are in scope;
-- who the users are;
-- which areas to cover;
-- how far to go (a report only, fixing the kit, or fixing everything and gating CI);
-- whether the app can run locally with sample data.
+**It asks before it starts.** Four questions, recorded in `a11y.config.json` → `target`:
+1. **The level.** It starts from WCAG 2.2 AA unless you name another (A, AA plus chosen AAA items such as Reduce Motion, or AAA for specific flows).
+2. **Why now:** a legal requirement, a customer's request, or quality.
+3. **The scope:** which apps and platforms, the main flows, and which areas.
+4. **The users:** anything known about who uses it.
 
-The audit then reports only what is inside the chosen target, and says what
-the target is at the top of every report. The default, if nobody chooses, is
-WCAG 2.2 AA plus 2.3.3 Reduce Motion.
+The audit reports only what is inside the target, and says what the target is
+at the top of every report.
+
+**A report first, then one step at a time.** The first deliverable is always a
+report, and nothing is changed before it. After that it asks whether to fix
+the components; then whether to go on to the screens; then whether to gate CI.
 
 | Area | WCAG | What it finds |
 |---|---|---|
@@ -275,7 +296,7 @@ strength of its scripts.
 - **Contrast maths** checked against WCAG's own reference values.
 - **The rendered-page check** was run against a page with planted problems, and caught all of them with no false alarms. It refuses to report on a page that rendered nothing.
 - **The review panel** passes axe-core itself.
-- **69 tests.**
+- **75 tests.**
 
 Not yet done: a run on a real React Native or Flutter app (the native rules are
 tested on sample code), and a full fix-and-retest cycle on one app.

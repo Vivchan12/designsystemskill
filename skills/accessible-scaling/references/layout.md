@@ -43,6 +43,39 @@ const plugin = require('tailwindcss/plugin');
 plugins: [plugin(({ addVariant }) => addVariant('large-text', '[data-text-scale="large"] &'))]
 ```
 
+### Server-rendered apps: no flash
+
+In a client-rendered app, importing the file from the entry is enough. In a
+server-rendered one (Next.js, Remix, Nuxt, SvelteKit, Astro), the server's
+HTML is painted before the bundle runs: someone with large text sees the
+normal layout first, then it jumps. Run the file **synchronously in `<head>`**,
+after the stylesheets, as a classic script (no `async`, no `defer`, not
+`type="module"`). It sets the attribute straight away from the root font size,
+before `<body>` exists, then keeps it current.
+
+```tsx
+// Next.js App Router: app/layout.tsx (a server component)
+import { readFileSync } from 'node:fs';
+const largeText = readFileSync(process.cwd() + '/src/theme/large-text.js', 'utf8');
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: largeText }} /></head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+`suppressHydrationWarning` on `<html>`: the script adds `data-text-scale`
+before React hydrates, which React would otherwise report as a mismatch (the
+same pattern as a dark-mode script). Other frameworks: paste the file into
+the head of the document template (`index.html`, `app.html`, `root.tsx`), or
+serve it from `/public` with a plain `<script src="/large-text.js"></script>`
+in `<head>`. Check: load a page with the browser's text size at 150% and the
+throttled network on; the first paint should already be the large layout.
+
 ## Spacing at 150% and above
 
 Large text needs the room that padding was using. Without this the text grows,

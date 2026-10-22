@@ -45,8 +45,9 @@ check('contrast.mjs: the text × surface matrix lists undeclared failing pairs',
 check('contrast.mjs --strict fails while a declared pair fails', cp.run('contrast.mjs', '--strict').code === 1);
 
 // ── Web ──
+// The motion rules belong to 2.3.3 (AAA): these projects opt in, as an owner would.
 const web = project({
-  'package.json': { dependencies: { react: '18' } },
+  'a11y.config.json': { target: { alsoInclude: ['2.3.3'] } }, 'package.json': { dependencies: { react: '18' } },
   'index.html': '<!doctype html><html><head></head><body><div id="root"></div></body></html>',
   'src/Nav.jsx': `import { X } from 'lucide-react';
 export const Nav = ({ onClose, ok, saved, error, type }) => (<div>
@@ -133,14 +134,14 @@ check('motion: an endless animation is a 2.2.2 check; a loading pulse is not', a
 check('links with no underline: a 1.4.1 check', at(w, 'link-colour-only').length === 1);
 check('html without lang fails 3.1.1', at(w, 'web-no-lang').some(a => a.startsWith('index.html')));
 check('tools: recommends jsx-a11y and axe-core when missing', w.tools.some(x => /jsx-a11y/.test(x)) && w.tools.some(x => /axe-core/.test(x)));
-const reduced = project({ 'package.json': {}, 'src/a.css': '@keyframes slideIn { from { transform: translateY(10px) } }\n@media (prefers-reduced-motion: reduce) { * { animation: none !important } }\n' }).audit();
+const reduced = project({ 'a11y.config.json': { target: { alsoInclude: ['2.3.3'] } }, 'package.json': {}, 'src/a.css': '@keyframes slideIn { from { transform: translateY(10px) } }\n@media (prefers-reduced-motion: reduce) { * { animation: none !important } }\n' }).audit();
 check('motion: one prefers-reduced-motion rule in the project clears it', !at(reduced, 'motion-no-reduce').length);
-const tw = project({ 'package.json': {}, 'tailwind.config.js': "module.exports = { theme: { extend: { keyframes: { float: { '0%': { transform: 'translateY(0)' } } } } } }", 'src/A.jsx': 'export const A = () => <div className="animate-bounce motion-safe:animate-ping">x</div>;\n' }).audit();
+const tw = project({ 'a11y.config.json': { target: { alsoInclude: ['2.3.3'] } }, 'package.json': {}, 'tailwind.config.js': "module.exports = { theme: { extend: { keyframes: { float: { '0%': { transform: 'translateY(0)' } } } } } }", 'src/A.jsx': 'export const A = () => <div className="animate-bounce motion-safe:animate-ping">x</div>;\n' }).audit();
 check('motion: keyframes in tailwind.config and animate-bounce are found', at(tw, 'motion-no-reduce').some(a => a.startsWith('tailwind.config.js')) && at(tw, 'motion-no-reduce').some(a => a.endsWith('A.jsx:1')), JSON.stringify(tw.findings));
 
 // ── React Native ──
 const rn = project({
-  'package.json': { dependencies: { 'react-native': '0.76', expo: '52' } },
+  'a11y.config.json': { target: { alsoInclude: ['2.3.3'] } }, 'package.json': { dependencies: { 'react-native': '0.76', expo: '52' } },
   'src/screens/Home.tsx': `import { Pressable, TouchableOpacity, Text, TextInput, View, Animated, AccessibilityInfo } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 export function Home({ onDelete, error, checked }) {
@@ -185,7 +186,7 @@ check('RN: a message that appears with no announcement is a check', at(r, 'rn-st
 check('RN: no headings anywhere in the screens is a check', at(r, 'rn-no-headings').length === 1);
 check('RN: core Animated without isReduceMotionEnabled fails; a swipe is a check', at(r, 'motion-no-reduce').some(a => a.endsWith('Home.tsx:4')) && at(r, 'gesture-only').some(a => a.endsWith('Home.tsx:20')));
 check('tools: recommends eslint-plugin-react-native-a11y, and says devices are still needed', r.tools.some(x => /react-native-a11y/.test(x)) && r.tools.some(x => /VoiceOver/.test(x)));
-const rn2 = project({ 'package.json': { dependencies: { 'react-native': '0.76' } }, 'src/A.tsx': `import { Text, AccessibilityInfo } from 'react-native';
+const rn2 = project({ 'a11y.config.json': { target: { alsoInclude: ['2.3.3'] } }, 'package.json': { dependencies: { 'react-native': '0.76' } }, 'src/A.tsx': `import { Text, AccessibilityInfo } from 'react-native';
 import { withTiming, ReduceMotion } from 'react-native-reanimated';
 export const A = ({ error }) => { AccessibilityInfo.announceForAccessibility(error); const x = withTiming(1); const y = withTiming(1, { reduceMotion: ReduceMotion.Never }); return <Text accessibilityLiveRegion="polite">{error}</Text>; };
 ` }).audit();
@@ -211,6 +212,36 @@ check('Flutter: GestureDetector and an unlabelled image are checks; a TextField 
 check('Android: ImageView without contentDescription fails; Compose icon button with contentDescription = null fails', at(n, 'android-image-unlabelled').length === 1 && at(n, 'compose-icon-button-unnamed').length === 1);
 check('SwiftUI: a button labelled only by an image is a check; Label() passes', at(n, 'swiftui-icon-button').length === 1);
 
+// ── announce() on the web: nothing swallowed ──
+await (async () => {
+  const mod = await import('node:module');
+  const helperFile = join(here, '../assets/a11y-helpers.web.ts');
+  if (!mod.stripTypeScriptTypes || !existsSync(helperFile)) { console.log('- announce(): skipped (needs Node 22.13+ to read TypeScript)'); return; }
+  const js = mod.stripTypeScriptTypes(readFileSync(helperFile, 'utf8'), { mode: 'strip' }).replace(/^export /gm, '');
+  // A stand-in page and clock: every write to a region is recorded.
+  let now = 0; const timers = [];
+  const setTimeout = (fn, ms) => { const t = { at: now + ms, fn }; timers.push(t); return t; };
+  const clearTimeout = (t) => { const i = timers.indexOf(t); if (i >= 0) timers.splice(i, 1); };
+  const tick = (ms) => { now += ms; for (const t of timers.filter(t => t.at <= now)) { clearTimeout(t); t.fn(); } };
+  const made = [];
+  const document = { body: { appendChild: (el) => made.push(el) }, addEventListener() {},
+    createElement: () => { const el = { attrs: {}, style: {}, writes: [], setAttribute(k, v) { this.attrs[k] = v; } };
+      Object.defineProperty(el, 'textContent', { get() { return this.writes.at(-1) ?? ''; }, set(v) { this.writes.push(v); } }); return el; } };
+  const api = new Function('document', 'setTimeout', 'clearTimeout', 'window', js + '; return { announce, flushAnnouncements };')(document, setTimeout, clearTimeout, undefined);
+  const polite = made.find(e => e.attrs['aria-live'] === 'polite'), assertive = made.find(e => e.attrs['aria-live'] === 'assertive');
+  api.announce('Reading saved'); tick(20); api.announce('3 readings today'); tick(400);
+  check('announce(): two messages close together are both said, in one write', polite.writes.length === 1 && polite.writes[0] === 'Reading saved. 3 readings today', JSON.stringify(polite.writes));
+  api.announce('Saved'); tick(400); api.announce('Saved'); tick(400); api.announce('Saved'); tick(400);
+  const w = polite.writes.slice(-3), seen = w.map(x => x.replace(/\u200B/g, ''));
+  check('announce(): the same message again still changes the region (an invisible mark), every time', new Set(w).size === 3 && w[1] !== w[0] && w[2] !== w[1] && seen.every(x => x === 'Saved'), JSON.stringify(w));
+  api.announce('Saved'); api.announce('Saved'); tick(400);
+  check('announce(): a message repeated within one burst is said once', polite.writes.at(-1).replace(/\u200B/g, '') === 'Saved', JSON.stringify(polite.writes.at(-1)));
+  api.announce('Temperature out of range', 'assertive'); tick(400);
+  check('announce(): errors go to the assertive region (role="alert"), not the polite one', assertive.writes.at(-1) === 'Temperature out of range' && assertive.attrs.role === 'alert' && polite.attrs.role === 'status');
+  api.announce('Last one'); api.flushAnnouncements();
+  check('announce(): flushAnnouncements() writes what is waiting at once', polite.writes.at(-1) === 'Last one');
+})();
+
 // ── Exemptions, baseline, strict ──
 const ex = project({ 'package.json': {}, 'src/A.jsx': 'export const A = () => <div onClick={x}>x</div>; // a11y-exempt: a drag handle; the row has a button for the same action\n' }).audit();
 check('a line marked a11y-exempt is skipped', !ex.findings.length, JSON.stringify(ex.findings));
@@ -233,10 +264,12 @@ check('target A: level-A rules reported (2.1.1), AA rules not (2.4.7 focus), AAA
 const lvAA = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'AA', alsoInclude: [] } } }).audit();
 check('target AA without extras: focus reported, Reduce Motion (AAA) not', at(lvAA, 'focus-removed').length === 1 && !at(lvAA, 'motion-no-reduce').length);
 const lvDefault = project(tgtFiles).audit();
-check('no target set: AA plus 2.3.3 (Reduce Motion), the recommended default', at(lvDefault, 'focus-removed').length === 1 && at(lvDefault, 'motion-no-reduce').length === 1);
-const areas = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'AA', areas: ['Motion'] } } }).audit();
+check('no target set: WCAG 2.2 AA (Reduce Motion, AAA, only when chosen)', at(lvDefault, 'focus-removed').length === 1 && !at(lvDefault, 'motion-no-reduce').length);
+const lvRM = project({ ...tgtFiles, 'a11y.config.json': { target: { alsoInclude: ['2.3.3'] } } }).audit();
+check('AA plus 2.3.3 when the owner adds it: Reduce Motion reported', at(lvRM, 'motion-no-reduce').length === 1 && at(lvRM, 'focus-removed').length === 1);
+const areas = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'AA', alsoInclude: ['2.3.3'], areas: ['Motion'] } } }).audit();
 check('target areas: only the chosen areas are reported', !at(areas, 'web-click-div').length && at(areas, 'motion-no-reduce').length === 1);
-check('the report states the target and that the skill is a work in progress', /Target: WCAG 2\.2 AA plus 2\.3\.3/.test(project(tgtFiles).run('a11y-audit.mjs').out) && /work in progress/.test(project(tgtFiles).run('a11y-audit.mjs').out));
+check('the report states the target and that the skill is a work in progress', /Target: WCAG 2\.2 AA \(/.test(project(tgtFiles).run('a11y-audit.mjs').out) && /work in progress/.test(project(tgtFiles).run('a11y-audit.mjs').out));
 const clean = project({ 'package.json': {}, 'src/A.jsx': 'export const A = () => <button>Save</button>;\n' });
 check('a clean project says code can\'t prove accessibility', /That is not the same as accessible/.test(clean.run('a11y-audit.mjs').out));
 

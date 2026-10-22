@@ -36,6 +36,7 @@ of these four missing.
 ```
 
 - **Live regions must exist before the message.** A region added together with its text is often silent. Keep one polite and one assertive region on the page from the start and put messages into them: `assets/a11y-helpers.web.ts` `announce()`. `role="status"` is polite; `role="alert"` interrupts, so use it for errors only.
+- **Messages get swallowed in two ways**, and `announce()` handles both: two written within a few milliseconds overwrite each other (it joins messages that arrive within 150 ms into one announcement), and the same text written again isn't a change (it adds an invisible zero-width space, which screen readers don't pronounce, so the content differs).
 - **Landmarks**: `<header>`, `<nav>`, `<main>` (one), `<footer>`; a skip link to `<main>` for keyboard users (2.4.1).
 - **Prefer HTML to ARIA.** `<button>` over `<div role="button" tabindex="0" onkeydown=…>`. A wrong ARIA role is worse than none.
 - **`aria-hidden="true"` never on anything focusable**: it hides it from the screen reader while the keyboard can still reach it.

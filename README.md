@@ -198,6 +198,17 @@ follow that setting **within a range per text role**:
 | Icons | grow with the text up to 1.5×, never shrink |
 | Hierarchy | a bigger role never renders smaller than a lesser one, at any setting |
 
+**It asks before it starts.** Four questions, the same shape as accessibility-review's:
+1. **The range.** It starts from the defaults above unless you name another, for example a higher ceiling for reading text in an app for older people or people with low vision.
+2. **Why now:** a legal requirement (WCAG 1.4.4), complaints, a screen known to break, or quality.
+3. **The scope:** which apps and platforms, the main screens, and whether it covers text only, or icons and layouts too.
+4. **The users:** anything known about who uses it.
+
+**A report first, then one step at a time.** It reports what blocks the setting
+and what breaks at large sizes, and changes nothing before that. Then it asks
+whether to agree the scale and apply it; then whether to fix the layouts; then
+whether to gate CI.
+
 Five phases: audit how the app treats the setting today, agree the scale (one
 table the owner signs off), apply it in one place (generated code, not
 hand-copied), fix the layouts that break at large sizes, and keep it with a CI

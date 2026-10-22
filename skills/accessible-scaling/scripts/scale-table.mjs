@@ -90,6 +90,8 @@ for (let i = 1; i < roles.length; i++) for (let j = 0; j < i; j++) {
 }
 if (icons.maxScale < 1.25) problems.push(`icons.maxScale ${icons.maxScale}: icons will look tiny beside large text. Let them reach at least 1.25×.`);
 if (policy.minScale > 1) problems.push('minScale above 1 ignores users who chose smaller text.');
+// A role's ceiling above the policy's never takes effect: the phone's setting is held at policy.maxScale first.
+for (const r of roles) if ((r.maxScale ?? 0) > policy.maxScale) problems.push(`"${r.name}" maxScale ${r.maxScale} has no effect: the policy holds the setting at ${policy.maxScale}. Raise policy.maxScale to ${r.maxScale}, and give the roles that should stop sooner their own maxScale.`);
 if (policy.maxScale < 2) problems.push(`maxScale ${policy.maxScale}: text can't reach 200%, which WCAG 1.4.4 requires.`);
 
 if (emit === 'ts') {

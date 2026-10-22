@@ -23,6 +23,28 @@ title…) applied through shared components. If text sizes are still set by
 hand on each screen, run the design-system rollout's type wave first, or
 apply this to the components that exist and leave the rest for the ratchet.
 
+## Before anything: ask
+
+Ask the owner four questions before running anything, each with a
+recommended answer so they can just confirm. Write the answers into
+`docs/text-scale.md` (and the range into `text-scale.config.json` →
+`policy`). On a later session, read them back instead of asking again.
+
+1. **Which range?** Start from the defaults unless the owner names another: follow the setting from **80% to 200%**, never below 12pt (14pt for reading text), large headings stopping sooner. Offer the alternatives only as options:
+   - a higher ceiling for reading text, for example 250% or the iPhone's largest size (about 310%), for an app used by older people or people with low vision. It means raising the policy's ceiling and keeping the other roles where they were (`references/scale.md`, "above 200%"); the scale table checks the hierarchy still holds;
+   - a lower floor or ceiling is not on offer for reading text: WCAG 1.4.4 needs 200%, so say so if asked.
+2. **Why now?** A legal or contract requirement (WCAG 1.4.4 Resize Text, AA), complaints ("the text is too small", "the layout breaks when I make it bigger"), a screen that is known to break, or quality. A legal or contractual reason means checking the result on real devices at every size, not just with this skill's tools: say so.
+3. **What's in scope?** Which apps and platforms (web, iOS, Android); the main screens to start with; and which parts: text sizes only, or also icons, and layouts and spacing at large sizes.
+4. **Who are the users?** Anything known (older users, low vision, reading on the move, in bright light) changes the ceiling for reading text and how much the layout work matters.
+
+**Start with the report, then ask about each next step.** The first
+deliverable is always a report (Phase 0): what blocks the setting, what breaks
+at large sizes, and one screen at the largest size. Nothing is changed before
+it. After the owner has seen it, ask whether to agree the scale and apply it
+(Phases 1–2); then whether to fix the layouts that break (Phase 3); and at the
+end, whether to gate CI (Phase 4). One question at each step, with what it
+involves, so the owner decides with the findings in front of them.
+
 ## Every session starts with the facts
 
 Run the audit and the scale table, read `docs/text-scale.md` if it exists, and
@@ -36,9 +58,10 @@ is remembered between sessions; everything is read from the repo.
 1. Find the text roles: the design system's type scale (tokens, a `Text` component's variants). Write them into `text-scale.config.json` (template: `assets/text-scale.config.json`), with each role's size and line height at the default setting.
 2. Run `node <skill>/scripts/text-scale-audit.mjs`. It reports where scaling is **blocked** (switched off, sizes in units that don't scale, zoom disabled) and where it **breaks** layouts (fixed heights around text, one-line truncation, text shrunk to fit, icons at a fixed size). It covers React Native, web, iOS, Android and Flutter.
 3. Look at the main screen at the largest setting. The quickest way is the **review tool** (`references/testing.md`): a development-only panel that switches the app between every iPhone and Android text size, and on the web marks text that doesn't grow, icons that don't grow, text cut off and shapes stretched. One screenshot usually makes the case better than the report. On the web, the **text-size-reviewer** agent (`agents/text-size-reviewer.md`) does this for you: it loads the panel into the running app for the session only, walks the screens at the sizes that matter, and reports what breaks.
-4. Tell the owner: how many places block the setting, the worst screens at large sizes, and whether text roles exist yet.
+4. Write the report into `docs/text-scale.md` and tell the owner: the range it was checked against, how many places block the setting, the worst screens at large sizes, and whether text roles exist yet.
+5. **Ask** whether to go on: agree the scale and apply it (Phases 1–2). Stop here if they want the report only.
 
-**Exit:** the owner has seen the audit and one screen at the largest size.
+**Exit:** the owner has seen the audit and one screen at the largest size, and has said whether to go on.
 
 ### Phase 1: Agree the scale (≈10 min of the owner's time)
 
@@ -56,7 +79,7 @@ is remembered between sessions; everything is read from the repo.
 2. The kit's text components (and text inputs) use it. On React Native they apply the scale themselves and switch system scaling off **only there**. They re-render when the setting changes.
 3. Screens use the kit's text components. Any screen that sets its own font size or switches scaling off is a finding (Phase 4 makes it fail CI).
 
-**Exit:** the kit's text components apply the scale; a unit test checks a role's size at the smallest, default and largest settings.
+**Exit:** the kit's text components apply the scale; a unit test checks a role's size at the smallest, default and largest settings. **Ask** whether to go on to the layouts that break.
 
 ### Phase 3: Fix the layouts that break
 
@@ -76,6 +99,8 @@ Fix the components first (rows, buttons, cards, list items), so the screens buil
 
 ### Phase 4: Keep it
 
+**Ask** first whether to gate CI, and explain what it means: a pull request that switches scaling off, or sets a size that doesn't scale, is blocked.
+
 - Remove the review tool: delete its file and the lines the audit lists under "Review tool still installed". (While it stays, `--strict` makes sure it is development-only.)
 - Add `text-scale-audit.mjs --strict` to CI: it fails while anything **blocks** the setting. A line that has a real reason keeps `text-scale-exempt: <why>`.
 - Add the screenshot matrix (main screens × four sizes) to the PR that finishes the work, and keep it in the design file if there is one.
@@ -83,7 +108,7 @@ Fix the components first (rows, buttons, cards, list items), so the screens buil
 
 ## Working with the owner
 
-- One sign-off: the table (Phase 1). Everything else follows from it.
+- The answers to the four questions, then one sign-off: the table (Phase 1). Everything else follows from them, one step at a time, each with the owner's go-ahead.
 - Show, don't describe: a screenshot at the largest size before, and after.
 - Never merge or release without the owner's go-ahead. Changes go in pull requests.
 - Be plain about limits: some layouts (dense tables, charts, tab bars) won't take 200% text, and need a different presentation at large sizes rather than larger text. Say which ones, and what you did instead.

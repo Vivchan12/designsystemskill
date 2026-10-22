@@ -32,9 +32,17 @@ this for every setting and tells you the smallest `maxScale` that fixes it.
 
 The policy above holds everything at 200%. That's a reasonable default, and it
 meets the requirement. For apps whose core is reading (articles, instructions,
-health information), consider letting **body text** go further (`maxScale: 2.5`
-or more on the body role only), with the layout patterns in `layout.md`. The
-people who choose those sizes do so because they need them.
+health information), consider letting **reading text** go further, with the layout patterns in
+`layout.md`. The people who choose those sizes do so because they need them.
+
+It takes three changes, because the policy holds the phone's setting at
+`policy.maxScale` before any role's own ceiling applies:
+
+1. Raise `policy.maxScale` (for example to 2.5, or 3.12 for the iPhone's largest size).
+2. Give the roles that should still stop at 200% their own `maxScale: 2` (caption, label), and keep the headings' lower ceilings.
+3. Run `scale-table.mjs`: it reports any heading that would now render smaller than the body text, and how far to raise its ceiling. Repeat until it reports no problems.
+
+Setting `maxScale` on the body role alone does nothing; the table says so.
 
 ### Line height grows with the size
 

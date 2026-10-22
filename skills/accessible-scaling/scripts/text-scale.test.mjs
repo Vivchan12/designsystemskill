@@ -45,6 +45,8 @@ const flip = project({ 'text-scale.config.json': { ...template, roles: { ...temp
 check('a heading that stops below the body text is reported, with the fix', flip.code === 1 && /"title" renders smaller than "lead"/.test(flip.out) && /maxScale to at least 1\.70/.test(flip.out), flip.out.split('## Problems')[1]);
 const capped = project({ 'text-scale.config.json': { ...template, roles: { ...template.roles, body: { size: 15, lineHeight: 22, reading: true, maxScale: 1.5 } } } })('scale-table.mjs');
 check('reading text capped below 200% is reported (WCAG 1.4.4)', capped.code === 1 && /"body" is reading text but can only grow to 150%/.test(capped.out), capped.out.split('## Problems')[1]);
+const noEffect = project({ 'text-scale.config.json': { ...template, roles: { ...template.roles, body: { ...template.roles.body, maxScale: 2.5 } } } })('scale-table.mjs');
+check('a role ceiling above the policy ceiling is reported (it would have no effect), with the fix', noEffect.code === 1 && /"body" maxScale 2\.5 has no effect/.test(noEffect.out) && /Raise policy\.maxScale to 2\.5/.test(noEffect.out), noEffect.out.split('## Problems')[1]);
 const tight = project({ 'text-scale.config.json': { ...template, roles: { ...template.roles, label: { size: 13, lineHeight: 13 } } } })('scale-table.mjs');
 check('a line height under 1.15× is reported', /"label" line height 13 is under 1\.15×/.test(tight.out), tight.out.split('## Problems')[1]);
 

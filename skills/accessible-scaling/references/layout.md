@@ -68,6 +68,10 @@ export default function RootLayout({ children }) {
 }
 ```
 
+If the app sets the root font size below 16px on purpose (`html { font-size:
+62.5% }`, the 10px trick), add `data-text-base="10"` to `<html>`, or the switch
+measures against 16px and never reaches 150%.
+
 `suppressHydrationWarning` on `<html>`: the script adds `data-text-scale`
 before React hydrates, which React would otherwise report as a mismatch (the
 same pattern as a dark-mode script). Other frameworks: paste the file into

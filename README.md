@@ -307,7 +307,7 @@ strength of its scripts.
 - **Contrast maths** checked against WCAG's own reference values.
 - **The rendered-page check** was run against a page with planted problems, and caught all of them with no false alarms. It refuses to report on a page that rendered nothing.
 - **The review panel** passes axe-core itself.
-- **75 tests.**
+- **79 tests.**
 
 Not yet done: a run on a real React Native or Flutter app (the native rules are
 tested on sample code), and a full fix-and-retest cycle on one app.

@@ -41,11 +41,17 @@
  *   <div className="p-6 large-text:p-4 flex large-text:flex-col">…</div>
  *
  * Plain CSS: [data-text-scale="large"] .row { flex-direction: column; }
+ *
+ * If the app sets the root font size below 16px on purpose (the 62.5% = 10px
+ * trick), say so: <html data-text-base="10">. Otherwise 150% is never reached.
  */
 (() => {
   if (typeof window === 'undefined' || window.__largeText) return;
   window.__largeText = true;
   const THRESHOLD = Number(document.documentElement.dataset.largeTextAt) || 1.5;   // <html data-large-text-at="1.4"> to change it
+  // What 1rem is at 100%: 16px unless the app sets the root smaller on purpose
+  // (html { font-size: 62.5% } makes it 10px): <html data-text-base="10">.
+  const BASE = Number(document.documentElement.dataset.textBase) || 16;
   const probe = document.createElement('span');
   probe.setAttribute('aria-hidden', 'true');
   probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;width:1rem;height:0;overflow:hidden;top:0;left:0';
@@ -59,10 +65,10 @@
   // text-size setting (and any root size the stylesheets above set). This is
   // what stops the flash on server-rendered pages.
   const rootSize = parseFloat(getComputedStyle(root).fontSize);
-  if (rootSize) apply(rootSize / 16);
+  if (rootSize) apply(rootSize / BASE);
   // Then keep it current: the probe measures 1rem, and a ResizeObserver fires
   // when the setting, a root font-size change, or the review tool changes it.
-  const update = () => { const w = probe.getBoundingClientRect().width; if (w) apply(w / 16); };
+  const update = () => { const w = probe.getBoundingClientRect().width; if (w) apply(w / BASE); };
   const start = () => { document.body.append(probe); update(); new ResizeObserver(update).observe(probe); };
   document.body ? start() : document.addEventListener('DOMContentLoaded', start);
 })();

@@ -240,6 +240,15 @@ await (async () => {
   check('announce(): errors go to the assertive region (role="alert"), not the polite one', assertive.writes.at(-1) === 'Temperature out of range' && assertive.attrs.role === 'alert' && polite.attrs.role === 'status');
   api.announce('Last one'); api.flushAnnouncements();
   check('announce(): flushAnnouncements() writes what is waiting at once', polite.writes.at(-1) === 'Last one');
+  // Imported from <head>: no <body> yet. The message waits, and is said once the page has a body.
+  const made2 = []; let onReady = null;
+  const doc2 = { body: null, appendChild: null, addEventListener: (ev, fn) => { if (ev === 'DOMContentLoaded') onReady = fn; }, createElement: document.createElement };
+  const api2 = new Function('document', 'setTimeout', 'clearTimeout', 'window', js + '; return { announce, flushAnnouncements };')(doc2, setTimeout, clearTimeout, undefined);
+  api2.announce('Signed in'); tick(400);
+  check('announce(): a message before <body> exists is not dropped', made2.length === 0 && typeof onReady === 'function');
+  doc2.body = { appendChild: (el) => made2.push(el) }; onReady(); tick(400);
+  const polite2 = made2.find(e => e.attrs['aria-live'] === 'polite');
+  check('announce(): it is said once the body exists', polite2 && polite2.writes.at(-1) === 'Signed in', JSON.stringify(made2.map(e => e.writes)));
 })();
 
 // ── Exemptions, baseline, strict ──
@@ -269,6 +278,10 @@ const lvRM = project({ ...tgtFiles, 'a11y.config.json': { target: { alsoInclude:
 check('AA plus 2.3.3 when the owner adds it: Reduce Motion reported', at(lvRM, 'motion-no-reduce').length === 1 && at(lvRM, 'focus-removed').length === 1);
 const areas = project({ ...tgtFiles, 'a11y.config.json': { target: { level: 'AA', alsoInclude: ['2.3.3'], areas: ['Motion'] } } }).audit();
 check('target areas: only the chosen areas are reported', !at(areas, 'web-click-div').length && at(areas, 'motion-no-reduce').length === 1);
+const oneArea = project({ ...tgtFiles, 'a11y.config.json': { target: { alsoInclude: ['2.3.3'], areas: 'Motion' } } }).audit();
+check('target areas as a single string means that one area, not all', !at(oneArea, 'web-click-div').length && at(oneArea, 'motion-no-reduce').length === 1, JSON.stringify(oneArea.counts));
+const sib = project({ 'package.json': {}, 'src/a11y/contrast.mjs': readFileSync(join(here, 'contrast.mjs'), 'utf8'), 'src/a11y/a11y-render.mjs': readFileSync(join(here, 'a11y-render.mjs'), 'utf8'), 'src/a11y/large-text.js': "document.body.onclick = x; /* keyframes slide { transform: translateX(1px) } */\n" }).audit();
+check('the skill\'s own scripts copied into a project are never findings', !sib.findings.length, JSON.stringify(sib.findings));
 check('the report states the target and that the skill is a work in progress', /Target: WCAG 2\.2 AA \(/.test(project(tgtFiles).run('a11y-audit.mjs').out) && /work in progress/.test(project(tgtFiles).run('a11y-audit.mjs').out));
 const clean = project({ 'package.json': {}, 'src/A.jsx': 'export const A = () => <button>Save</button>;\n' });
 check('a clean project says code can\'t prove accessibility', /That is not the same as accessible/.test(clean.run('a11y-audit.mjs').out));

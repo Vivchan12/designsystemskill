@@ -34,6 +34,7 @@ const exempt = cfg.exempt ?? ['node_modules', 'dist', 'build', 'Pods', '.gradle'
 const ignore = new Set(cfg.ignore ?? []);
 // The target the owner chose (SKILL.md, "Before anything: ask"). Default: WCAG 2.2 AA.
 const target = { level: 'AA', alsoInclude: [], areas: 'all', ...cfg.target };
+if (typeof target.areas === 'string' && target.areas !== 'all') target.areas = [target.areas];   // "Motion" means ["Motion"]
 const RANK = { A: 1, AA: 2, AAA: 3 };
 const defaultBg = cfg.contrast?.defaultBackground ?? '#ffffff';
 const args = process.argv.slice(2);
@@ -47,7 +48,8 @@ function* walk(dir) {
     else if (EXT.includes(extname(n)) && !/\.(test|spec|stories|d)\.|\.config\./.test(n)) yield rel;
   }
 }
-const isTool = (rel) => /(^|\/)(a11y-preview\.js|a11y-audit\.mjs|text-scale-preview\.js|TextScalePreview\.tsx)$/.test(rel);
+// This skill's own files, and accessible-scaling's: never findings, wherever a project keeps them.
+const isTool = (rel) => /(^|\/)(a11y-preview\.js|a11y-audit\.mjs|a11y-render\.mjs|contrast\.mjs|a11y-helpers\.(web|native)\.ts|text-scale-preview\.js|TextScalePreview\.tsx|text-scale-audit\.mjs|scale-table\.mjs|large-text\.js)$/.test(rel);
 const files = [...new Set(srcDirs.flatMap(d => [...walk(join(ROOT, d))]))].filter(r => !isTool(r)).map(rel => ({ rel, text: readFileSync(join(ROOT, rel), 'utf8') }));
 // Root files a project often keeps outside its source folders: the HTML shell, the app entry, global CSS.
 const rootFiles = readdirSync(ROOT).filter(n => /^(index\.html|App\.(t|j)sx?)$/.test(n) || /\.(css|scss)$/.test(n));

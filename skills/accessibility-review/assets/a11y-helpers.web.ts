@@ -24,6 +24,7 @@ type Politeness = 'polite' | 'assertive';
 type Region = { el: HTMLElement; pending: string[]; timer: ReturnType<typeof setTimeout> | null; last: string; flips: number };
 
 let regions: Record<Politeness, Region> | null = null;
+const early: [string, Politeness][] = [];   // announced before <body> existed: said once it does
 function ensure() {
   if (regions || typeof document === 'undefined' || !document.body) return regions;
   const make = (live: Politeness): Region => {
@@ -37,6 +38,7 @@ function ensure() {
     return { el, pending: [], timer: null, last: '', flips: 0 };
   };
   regions = { polite: make('polite'), assertive: make('assertive') };
+  for (const [m, pol] of early.splice(0)) announce(m, pol);
   return regions;
 }
 if (typeof document !== 'undefined') (document.body ? ensure() : document.addEventListener('DOMContentLoaded', ensure));
@@ -55,7 +57,9 @@ function flush(r: Region) {
 
 /** Say a status message. Messages within BUFFER_MS are joined into one announcement; a repeat is still said. */
 export function announce(message: string, politeness: Politeness = 'polite') {
-  const all = ensure(); if (!all || !message || !message.trim()) return;
+  if (!message || !message.trim()) return;
+  const all = ensure();
+  if (!all) { if (typeof document !== 'undefined') early.push([message, politeness]); return; }
   const r = all[politeness];
   r.pending.push(message.trim().replace(/[.\s]+$/, ''));
   if (r.timer) clearTimeout(r.timer);
